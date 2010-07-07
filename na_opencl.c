@@ -48,10 +48,10 @@ void
     ret = clSetKernelArg(kernel_func, 0, global_item_size*MAX(ps1,1)*sizeof(cl_char), NULL);
     ret = clSetKernelArg(kernel_func, 1, sizeof(cl_mem), (void *)&buf1);
     int b1 = (int)(s1[0].p-p1); 
-    ret = clSetKernelArg(kernel_func, 3, sizeof(cl_int), &b1);
+    ret = clSetKernelArg(kernel_func, 3, sizeof(cl_int), (void *)&b1);
     ret = clSetKernelArg(kernel_func, 4, sizeof(cl_mem), (void *)&buf2);
     int b2 = (int)(s2[0].p-p2); 
-    ret = clSetKernelArg(kernel_func, 6, sizeof(cl_int), &b2);
+    ret = clSetKernelArg(kernel_func, 6, sizeof(cl_int), (void *)&b2);
 
     /* execute OpenCL kernel */
     ret = clEnqueueNDRangeKernel(queue, kernel_func, 1, NULL, &global_item_size, NULL, 0, NULL, NULL);
@@ -113,13 +113,13 @@ void
     ret = clSetKernelArg(kernel_func, 0, global_item_size*MAX(ps1,1)*sizeof(cl_char), NULL);
     ret = clSetKernelArg(kernel_func, 1, sizeof(cl_mem), (void *)&buf1);
     int b1 = (int)(s1[0].p-p1); 
-    ret = clSetKernelArg(kernel_func, 3, sizeof(cl_int), &b1);
+    ret = clSetKernelArg(kernel_func, 3, sizeof(cl_int), (void *)&b1);
     ret = clSetKernelArg(kernel_func, 4, sizeof(cl_mem), (void *)&buf2);
     int b2 = (int)(s2[0].p-p2); 
-    ret = clSetKernelArg(kernel_func, 6, sizeof(cl_int), &b2);
+    ret = clSetKernelArg(kernel_func, 6, sizeof(cl_int), (void *)&b2);
     ret = clSetKernelArg(kernel_func, 7, sizeof(cl_mem), (void *)&buf3);
     int b3 = (int)(s3[0].p-p3); 
-    ret = clSetKernelArg(kernel_func, 9, sizeof(cl_int), &b3);
+    ret = clSetKernelArg(kernel_func, 9, sizeof(cl_int), (void *)&b3);
 
     /* execute OpenCL kernel */
     ret = clEnqueueNDRangeKernel(queue, kernel_func, 1, NULL, &global_item_size, NULL, 0, NULL, NULL); //let OpenCL decide the local item size by feeding NULL to 6th arg
