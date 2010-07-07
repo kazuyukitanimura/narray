@@ -94,6 +94,17 @@ enum NArray_Types {
   NA_NTYPES	/* 9 */
 };
 
+#if (defined(HAVE_OPENCL_OPENCL_H) || defined(HAVE_CL_CL_H))
+#ifdef HAVE_OPENCL_OPENCL_H
+#include <OpenCL/opencl.h>
+#else
+#include <CL/cl.h>
+#endif
+/* global variables */
+cl_device_id device_id;
+cl_context context;
+#endif
+
 /* struct for Numerical Array */
 struct NARRAY {
   int    rank;	  /* # of dimension */
@@ -102,6 +113,9 @@ struct NARRAY {
   int   *shape;
   char  *ptr;	  /* pointer to data */
   VALUE  ref;	  /* NArray object wrapping this structure */
+#if (defined(HAVE_OPENCL_OPENCL_H) || defined(HAVE_CL_CL_H))
+  cl_command_queue queue;
+#endif
 };
 
 #ifndef NARRAY_C
