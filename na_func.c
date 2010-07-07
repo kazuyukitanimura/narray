@@ -11,7 +11,7 @@
 #include <ruby.h>
 #include "narray.h"
 #include "narray_local.h"
-#if (defined(HAVE_OPENCL_OPENCL_H) || defined(HAVE_CL_CL_H))
+#ifdef __OPENCL__
 void na_opencl_do_loop_unary(cl_command_queue, int, char*, char*, struct slice*, struct slice*, void*);
 void na_opencl_do_loop_binary(cl_command_queue, int, char*, char*, char*, struct slice*, struct slice*, struct slice*, void*);
 #endif
@@ -482,14 +482,13 @@ static void
   na_init_slice( s1, ndim, shp1, na_sizeof[a1->type] );
   na_init_slice( s2, ndim, shp2, na_sizeof[a2->type] );
 
-#if (defined(HAVE_OPENCL_OPENCL_H) || defined(HAVE_CL_CL_H))
-  //if ((a1->type > NA_NONE) && (a1->type < NA_DCOMPLEX) && (a1->type != NA_DFLOAT) && (s1[0].pstep > 0) && (s2[0].pstep > 0)) {
+#ifdef __OPENCL__
   if ((a1->type > NA_NONE) && (a1->type < NA_DCOMPLEX) && (a1->type != NA_DFLOAT)) {
     na_opencl_do_loop_unary(a1->queue, ndim, a1->ptr, a2->ptr, s1, s2, func );
   }else {
 #endif
   na_do_loop_unary( ndim, a1->ptr, a2->ptr, s1, s2, func );
-#if (defined(HAVE_OPENCL_OPENCL_H) || defined(HAVE_CL_CL_H))
+#ifdef __OPENCL__
   }
 #endif
 
@@ -529,13 +528,13 @@ static void
   na_init_slice(s2, ndim, shp2, na_sizeof[a2->type] );
   na_init_slice(s3, ndim, shp3, na_sizeof[a3->type] );
 
-#if (defined(HAVE_OPENCL_OPENCL_H) || defined(HAVE_CL_CL_H))
+#ifdef __OPENCL__
   if ((a2->type > NA_NONE) && (a2->type < NA_DCOMPLEX) && (a2->type != NA_DFLOAT) && (func != ModBFuncs[NA_SCOMPLEX])) {
     na_opencl_do_loop_binary(a1->queue, ndim, a1->ptr, a2->ptr, a3->ptr, s1, s2, s3, func );
   }else {
 #endif
   na_do_loop_binary( ndim, a1->ptr, a2->ptr, a3->ptr, s1, s2, s3, func );
-#if (defined(HAVE_OPENCL_OPENCL_H) || defined(HAVE_CL_CL_H))
+#ifdef __OPENCL__
   }
 #endif
   xfree(s1);

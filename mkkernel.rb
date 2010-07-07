@@ -154,7 +154,7 @@ EOM
 #  Unary Funcs
 #
 $func_body = 
-  "__kernel void #name#C(__global char* p0, __global char* p1, int i1, __global char* p2, int i2)
+  "__kernel void #name#C(__local char* p0, __global char* p1, int i1, __global char* p2, int i2)
 {
   GLOBAL_ID
   OPERATION
@@ -200,42 +200,57 @@ $func_body =
 
 mkopenclfuncs('Neg', $opencl_types, $opencl_types,
  [nil] +
- ["*p0 = -*p2;"]*4 + 
+ ["*p1 = -*p2;"]*4 + 
  [nil] +
- ["p0->r = -p2->r;
-  p0->i = -p2->i;"] +
+ ["p1->r = -p2->r;
+  p1->i = -p2->i;"] +
  [nil] +
  [nil]
 )
 
 mkopenclfuncs('AddU', $opencl_types, $opencl_types,
  [nil] +
- ["*p0 = *p1 + *p2;"]*4 + 
+ ["*p0 = *p1 + *p2;
+  barrier(CLK_LOCAL_MEM_FENCE);
+  *p1 = *p0;"]*4 + 
  [nil] +
  ["p0->r = p1->r + p2->r;
-  p0->i = p1->i + p2->i;"] +
+  p0->i = p1->i + p2->i;
+  barrier(CLK_LOCAL_MEM_FENCE);
+  p1->r = p0->r;
+  p1->i = p0->i;"] +
  [nil] +
  [nil]
 )
 
 mkopenclfuncs('SbtU', $opencl_types, $opencl_types,
  [nil] +
- ["*p0 = *p1 - *p2;"]*4 + 
+ ["*p0 = *p1 - *p2;
+  barrier(CLK_LOCAL_MEM_FENCE);
+  *p1 = *p0;"]*4 + 
  [nil] +
  ["p0->r = p1->r - p2->r;
-  p0->i = p1->i - p2->i;"] +
+  p0->i = p1->i - p2->i;
+  barrier(CLK_LOCAL_MEM_FENCE);
+  p1->r = p0->r;
+  p1->i = p0->i;"] +
  [nil] +
  [nil]
 )
 
 mkopenclfuncs('MulU', $opencl_types, $opencl_types,
  [nil] +
- ["*p0 = *p1 * *p2;"]*4 + 
+ ["*p0 = *p1 * *p2;
+  barrier(CLK_LOCAL_MEM_FENCE);
+  *p1 = *p0;"]*4 + 
  [nil] +
  ["typecl x = *p1;
   typecl y = *p2;
   p0->r = x.r*y.r - x.i*y.i;
-  p0->i = x.r*y.i + x.i*y.r;"] +
+  p0->i = x.r*y.i + x.i*y.r;
+  barrier(CLK_LOCAL_MEM_FENCE);
+  p1->r = p0->r;
+  p1->i = p0->i;"] +
  [nil] +
  [nil]
 )
@@ -245,13 +260,18 @@ mkopenclfuncs('DivU', $opencl_types, $opencl_types,
  #["if (*p2==0) {na_zerodiv();}
  #   *p1 /= *p2;"]*3 + 
  #["*p1 /= *p2;"]*2 + 
- ["*p0 = *p1 / *p2;"]*4 + 
+ ["*p0 = *p1 / *p2;
+  barrier(CLK_LOCAL_MEM_FENCE);
+  *p1 = *p0;"]*4 + 
  [nil] +
  ["typecl x = *p1;
   typecl y = *p2;
   typef a = y.r*y.r + y.i*y.i;
   p0->r = (x.r*y.r + x.i*y.i)/a;
-  p0->i = (x.i*y.r - x.r*y.i)/a;"] +
+  p0->i = (x.i*y.r - x.r*y.i)/a;
+  barrier(CLK_LOCAL_MEM_FENCE);
+  p1->r = p0->r;
+  p1->i = p0->i;"] +
  [nil] +
  [nil]
 )
@@ -332,7 +352,7 @@ mkopenclfuncs('DivU', $opencl_types, $opencl_types,
 
 mkopenclfuncs('BRv', $opencl_types, $opencl_types,
  [nil] +
- ["*p0 = ~(*p2);"]*3 +
+ ["*p1 = ~(*p2);"]*3 +
  [nil]*5
 )
 
@@ -375,7 +395,7 @@ mkopenclfuncs('BRv', $opencl_types, $opencl_types,
 
 # indgen
 $func_body = 
-  "__kernel void #name#C(__global char* p0, __global char* p1, int i1, int p2, int i2)
+  "__kernel void #name#C(__local char* p0, __global char* p1, int i1, int p2, int i2)
 {
   GLOBAL_ID
   OPERATION
@@ -503,7 +523,7 @@ $func_body =
 #   Binary Funcs
 #
 $func_body = 
-  "__kernel void #name#C(__global char* p0, __global char* p1, int i1, __global char* p2, int i2, __global char* p3, int i3)
+  "__kernel void #name#C(__local char* p0, __global char* p1, int i1, __global char* p2, int i2, __global char* p3, int i3)
 {
   GLOBAL_ID
   OPERATION
@@ -512,35 +532,35 @@ $func_body =
 
 mkopenclfuncs('AddB', $opencl_types, $opencl_types,
  [nil] +
- ["*p0 = *p2 + *p3;"]*4 + 
+ ["*p1 = *p2 + *p3;"]*4 + 
  [nil] +
- ["p0->r = p2->r + p3->r;
-  p0->i = p2->i + p3->i;"] +
+ ["p1->r = p2->r + p3->r;
+  p1->i = p2->i + p3->i;"] +
  [nil] +
  [nil]
 )
 
 mkopenclfuncs('SbtB', $opencl_types, $opencl_types,
  [nil] +
- ["*p0 = *p2 - *p3;"]*4 + 
+ ["*p1 = *p2 - *p3;"]*4 + 
  [nil] +
- ["p0->r = p2->r - p3->r;
-  p0->i = p2->i - p3->i;"] +
+ ["p1->r = p2->r - p3->r;
+  p1->i = p2->i - p3->i;"] +
  [nil] +
  [nil]
 )
 
 mkopenclfuncs('MulB', $opencl_types, $opencl_types,
  [nil] +
- ["*p0 = *p2 * *p3;"]*4 + 
+ ["*p1 = *p2 * *p3;"]*4 + 
  [nil] +
  #["typecl x = *p2;
- # p0->r = x.r*p3->r - x.i*p3->i;
- # p0->i = x.r*p3->i + x.i*p3->r;"]*2 +
+ # p1->r = x.r*p3->r - x.i*p3->i;
+ # p1->i = x.r*p3->i + x.i*p3->r;"]*2 +
  ["typecl x = *p2;
   typecl y = *p3;
-  p0->r = x.r*y.r - x.i*y.i;
-  p0->i = x.r*y.i + x.i*y.r;"] +
+  p1->r = x.r*y.r - x.i*y.i;
+  p1->i = x.r*y.i + x.i*y.r;"] +
  [nil] +
  [nil]
 )
@@ -550,32 +570,34 @@ mkopenclfuncs('DivB', $opencl_types, $opencl_types,
  #["if (*p3==0) {na_zerodiv();};
  #   *p1 = *p2 / *p3;"]*3 +
  #["*p1 = *p2 / *p3;"]*2 +
- ["*p0 = *p2 / *p3;"]*4 +
+ ["*p1 = *p2 / *p3;"]*4 +
  [nil] +
  #["typecl x = *p2;
  # typef a = p3->r*p3->r + p3->i*p3->i;
- # p0->r = (x.r*p3->r + x.i*p3->i)/a;
- # p0->i = (x.i*p3->r - x.r*p3->i)/a;"]*2 +
+ # p1->r = (x.r*p3->r + x.i*p3->i)/a;
+ # p1->i = (x.i*p3->r - x.r*p3->i)/a;"]*2 +
  ["typecl x = *p2;
   typecl y = *p3;
   typef a = y.r*y.r + y.i*y.i;
-  p0->r = (x.r*y.r + x.i*y.i)/a;
-  p0->i = (x.i*y.r - x.r*y.i)/a;"] +
+  p1->r = (x.r*y.r + x.i*y.i)/a;
+  p1->i = (x.i*y.r - x.r*y.i)/a;"] +
  [nil] +
  [nil]
 )
 
 mkopenclfuncs('ModB', $opencl_types, $opencl_types,
  [nil] +
- ["*p0 = *p2 % *p3;"]*3 + 
- ["*p0 = fmod(*p2, *p3);"] + 
+ ["*p1 = *p2 % *p3;"]*3 + 
+ ["*p1 = fmod(*p2, *p3);"] + 
  [nil] +
  [nil]*3
 )
 
 mkopenclfuncs('MulAdd', $opencl_types, $opencl_types,
  [nil] +
- ["*p0 = *p1 + *p2 * *p3;"]*4 + 
+ ["*p0 = *p1 + *p2 * *p3;
+  barrier(CLK_LOCAL_MEM_FENCE);
+  *p1 = *p0;"]*4 + 
  [nil] +
  #["typecl x = *p2;
  # p0->r = p1->r + x.r*p3->r - x.i*p3->i;
@@ -583,14 +605,19 @@ mkopenclfuncs('MulAdd', $opencl_types, $opencl_types,
  ["typecl x = *p2;
   typecl y = *p3;
   p0->r = p1->r + x.r*y.r - x.i*y.i;
-  p0->i = p1->i + x.r*y.i + x.i*y.r;"] +
+  p0->i = p1->i + x.r*y.i + x.i*y.r;
+  barrier(CLK_LOCAL_MEM_FENCE);
+  p1->r = p0->r;
+  p1->i = p0->i;"] +
  [nil] +
  [nil]
 )
 
 mkopenclfuncs('MulSbt', $opencl_types, $opencl_types,
  [nil] +
- ["*p0 = *p1 - *p2 * *p3;"]*4 + 
+ ["*p0 = *p1 - *p2 * *p3;
+  barrier(CLK_LOCAL_MEM_FENCE);
+  *p1 = *p0;"]*4 + 
  [nil] +
  #["typecl x = *p2;
  # p0->r = p1->r - x.r*p3->r - x.i*p3->i;
@@ -598,7 +625,10 @@ mkopenclfuncs('MulSbt', $opencl_types, $opencl_types,
  ["typecl x = *p2;
   typecl y = *p3;
   p0->r = p1->r - x.r*y.r - x.i*y.i;
-  p0->i = p1->i - x.r*y.i + x.i*y.r;"] +
+  p0->i = p1->i - x.r*y.i + x.i*y.r;
+  barrier(CLK_LOCAL_MEM_FENCE);
+  p1->r = p0->r;
+  p1->i = p0->i;"] +
  [nil] +
  [nil]
 )
@@ -610,19 +640,19 @@ mkopenclfuncs('MulSbt', $opencl_types, $opencl_types,
 
 mkopenclfuncs('BAn', $opencl_types, $opencl_types,
  [nil] +
- ["*p0 = *p2 & *p3;"]*3 + 
+ ["*p1 = *p2 & *p3;"]*3 + 
  [nil]*5
 )
 
 mkopenclfuncs('BOr', $opencl_types, $opencl_types,
  [nil] +
- ["*p0 = *p2 | *p3;"]*3 + 
+ ["*p1 = *p2 | *p3;"]*3 + 
  [nil]*5
 )
 
 mkopenclfuncs('BXo', $opencl_types, $opencl_types,
  [nil] +
- ["*p0 = *p2 ^ *p3;"]*3 + 
+ ["*p1 = *p2 ^ *p3;"]*3 + 
  [nil]*5
 )
 
