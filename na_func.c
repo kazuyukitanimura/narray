@@ -12,8 +12,8 @@
 #include "narray.h"
 #include "narray_local.h"
 #ifdef __OPENCL__
-void na_opencl_do_loop_unary(cl_command_queue, int, char*, char*, struct slice*, struct slice*, void*);
-void na_opencl_do_loop_binary(cl_command_queue, int, char*, char*, char*, struct slice*, struct slice*, struct slice*, void*);
+void na_opencl_do_loop_unary(cl_command_queue, int, char*, char*, struct slice*, struct slice*, cl_mem, cl_mem, void*);
+void na_opencl_do_loop_binary(cl_command_queue, int, char*, char*, char*, struct slice*, struct slice*, struct slice*, cl_mem, cl_mem, cl_mem, void*);
 #endif
 
 int
@@ -484,7 +484,7 @@ static void
 
 #ifdef __OPENCL__
   if ((a1->type > NA_NONE) && (a1->type < NA_DCOMPLEX) && (a1->type != NA_DFLOAT)) {
-    na_opencl_do_loop_unary(a1->queue, ndim, a1->ptr, a2->ptr, s1, s2, func );
+    na_opencl_do_loop_unary(a1->queue, ndim, a1->ptr, a2->ptr, s1, s2, a1->buffer, a2->buffer, func );
   }else {
 #endif
   na_do_loop_unary( ndim, a1->ptr, a2->ptr, s1, s2, func );
@@ -530,7 +530,7 @@ static void
 
 #ifdef __OPENCL__
   if ((a2->type > NA_NONE) && (a2->type < NA_DCOMPLEX) && (a2->type != NA_DFLOAT) && (func != ModBFuncs[NA_SCOMPLEX])) {
-    na_opencl_do_loop_binary(a1->queue, ndim, a1->ptr, a2->ptr, a3->ptr, s1, s2, s3, func );
+    na_opencl_do_loop_binary(a1->queue, ndim, a1->ptr, a2->ptr, a3->ptr, s1, s2, s3, a1->buffer, a2->buffer, a3->buffer, func );
   }else {
 #endif
   na_do_loop_binary( ndim, a1->ptr, a2->ptr, a3->ptr, s1, s2, s3, func );
