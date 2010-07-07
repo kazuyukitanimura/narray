@@ -169,7 +169,7 @@ struct NARRAY*
   //ary->queue = clCreateCommandQueue(context, device_id, 0, NULL);
   ary->queue = clCreateCommandQueue(context, device_id, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE , NULL);
   if ( ary->total > 0 ) {
-    ary->buffer = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, na_sizeof[type]*total*sizeof(cl_char), ary->ptr, NULL);
+    ary->buffer = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, na_sizeof[type]*total, ary->ptr, NULL);
   }else {
     ary->buffer = NULL;
   }
@@ -1035,9 +1035,35 @@ VALUE
   }
 
   GetNArray(self,ary);
+#ifdef __OPENCL__
+  if ((ary->type > NA_NONE) && (ary->type < NA_DCOMPLEX) && (ary->type != NA_DFLOAT)) {
+    size_t global_item_size = ary->total;
+    cl_int ret;
+    /* set OpenCL kernel arguments */
+    ret = clSetKernelArg((void*)IndGenFuncs[ary->type], 0, global_item_size*na_sizeof[ary->type], NULL);
+    cl_mem buf = ary->buffer;
+    ret = clSetKernelArg((void*)IndGenFuncs[ary->type], 1, sizeof(cl_mem), (void *)&buf);
+    ret = clSetKernelArg((void*)IndGenFuncs[ary->type], 2, sizeof(cl_int), (void *)&na_sizeof[ary->type]);
+    int b1 = 0; 
+    ret = clSetKernelArg((void*)IndGenFuncs[ary->type], 3, sizeof(cl_int), &b1);
+    ret = clSetKernelArg((void*)IndGenFuncs[ary->type], 4, sizeof(cl_int), (void *)&start);
+    ret = clSetKernelArg((void*)IndGenFuncs[ary->type], 5, sizeof(cl_int), (void *)&step);
+    int b2 = 0; 
+    ret = clSetKernelArg((void*)IndGenFuncs[ary->type], 6, sizeof(cl_int), (void *)&b2);
+    /* execute OpenCL kernel */
+    ret = clEnqueueNDRangeKernel(ary->queue, (void*)IndGenFuncs[ary->type], 1, NULL, &global_item_size, NULL, 0, NULL, NULL);
+    if (ret != CL_SUCCESS)
+      rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
+    /* run commands in queue and make sure all commands in queue is done */
+    clFlush(ary->queue); clFinish(ary->queue);
+  }else {
+#endif
   IndGenFuncs[ary->type]( ary->total, 
 			  ary->ptr, na_sizeof[ary->type],
 			  start, step );
+#ifdef __OPENCL__
+  }
+#endif
   return self;
 }
 

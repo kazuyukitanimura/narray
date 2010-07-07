@@ -19,15 +19,13 @@ def array_size
   ]
 
   r = 50
-  n = nil
-  i = nil
   list.each_with_index do |n,i|
     a = NArray.float(n)
     b = NArray.float(n)
     t = bench_time(r) { c = a+b }
     break if t>0.5
   end
-  [n, mlist[i], r*2]
+  [list[-1], mlist[-1], r*2]
 end
 
 def bench_time(n)

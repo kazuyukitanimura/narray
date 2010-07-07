@@ -397,21 +397,21 @@ mkopenclfuncs('BRv', $opencl_types, $opencl_types,
 
 # indgen
 $func_body = 
-  "__kernel void #name#C(__local char* p0, __global char* p1, int i1, int p2, int i2)
+  "__kernel void #name#C(__local char* p0, __global char* p1, int i1, int b1, int p2, int i2, int b2)
 {
-  GLOBAL_ID
+  int gid = get_global_id(0);
   OPERATION
 }
 "
-#mkopenclfuncs('IndGen',$opencl_types,[$opencl_types[3]]*8,
-# [nil] +
-# ["*p1 = p2;"]*4 +
-# [nil] +
-# ["p1->r = p2;
-#   p1->i = 0;"] +
-# [nil] +
-# [nil]
-#)
+mkopenclfuncs('IndGen',$opencl_types,[$opencl_types[3]]*8,
+ [nil] +
+ ["*p1 = p2+gid*i2;"]*4 +
+ [nil] +
+ ["p1->r = p2+gid*i2;
+   p1->i = 0;"] +
+ [nil] +
+ [nil]
+)
 
 
 
