@@ -95,11 +95,16 @@ enum NArray_Types {
 };
 
 #if (defined(HAVE_OPENCL_OPENCL_H) || defined(HAVE_CL_CL_H))
+#define __OPENCL__
 #ifdef HAVE_OPENCL_OPENCL_H
 #include <OpenCL/opencl.h>
 #else
 #include <CL/cl.h>
 #endif
+
+#define MAX(a,b) ((a)>(b)?(a):(b))
+#define MIN(a,b) ((a)<(b)?(a):(b))
+
 /* global variables */
 cl_device_id device_id;
 cl_context context;
@@ -113,8 +118,9 @@ struct NARRAY {
   int   *shape;
   char  *ptr;	  /* pointer to data */
   VALUE  ref;	  /* NArray object wrapping this structure */
-#if (defined(HAVE_OPENCL_OPENCL_H) || defined(HAVE_CL_CL_H))
-  cl_command_queue queue;
+#ifdef __OPENCL__
+  cl_command_queue queue; /* OpenCL command queue */
+  cl_mem buffer;          /* OpenCL buffer memory */
 #endif
 };
 

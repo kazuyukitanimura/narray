@@ -63,7 +63,7 @@ void Init_na_funcs(void);
 void Init_na_linalg(void);
 void Init_na_random(void);
 
-#if (defined(HAVE_OPENCL_OPENCL_H) || defined(HAVE_CL_CL_H))
+#ifdef __OPENCL__
 void Init_na_opencl(void);
 #endif
 
@@ -112,9 +112,13 @@ static void
     ary->ptr = NULL;
 #endif
   }
-#if (defined(HAVE_OPENCL_OPENCL_H) || defined(HAVE_CL_CL_H))
+#ifdef __OPENCL__
   /* releasing OpenCL objects */
   clReleaseCommandQueue(ary->queue);
+  ary->queue = NULL;
+  if ( ary->total > 0 )
+    clReleaseMemObject(ary->buffer);
+  ary->buffer = NULL;
 #endif
   xfree(ary);
 }
@@ -160,9 +164,15 @@ struct NARRAY*
       ary->shape[i] = shape[i];
   }
   ary->ref = Qtrue;
-#if (defined(HAVE_OPENCL_OPENCL_H) || defined(HAVE_CL_CL_H))
+#ifdef __OPENCL__
   /* create OpenCL command queue */
-  ary->queue = clCreateCommandQueue(context, device_id, 0, NULL);
+  //ary->queue = clCreateCommandQueue(context, device_id, 0, NULL);
+  ary->queue = clCreateCommandQueue(context, device_id, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE , NULL);
+  if ( ary->total > 0 ) {
+    ary->buffer = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, na_sizeof[type]*total*sizeof(cl_char), ary->ptr, NULL);
+  }else {
+    ary->buffer = NULL;
+  }
 #endif
   return ary;
 }
@@ -293,6 +303,10 @@ struct NARRAY*
   for (i=0; i<orig->rank; ++i)
     ary->shape[i] = orig->shape[i];
   ary->ref   = obj;
+#ifdef __OPENCL__
+  ary->queue  = orig->queue;
+  ary->buffer = orig->buffer;
+#endif
 
   return ary;
 }
@@ -1313,7 +1327,7 @@ void
     /* NArray extention script */
     rb_require("narray_ext.rb");
 
-#if (defined(HAVE_OPENCL_OPENCL_H) || defined(HAVE_CL_CL_H))
+#ifdef __OPENCL__
     /* For NArray on OpenCL */
     Init_na_opencl();
 #endif

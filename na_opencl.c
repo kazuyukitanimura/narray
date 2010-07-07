@@ -8,15 +8,12 @@
   under the same terms as Ruby itself.
   NO WARRANTY.
 */
-#if (defined(HAVE_OPENCL_OPENCL_H) || defined(HAVE_CL_CL_H))
 #include <stdio.h>
 #include "ruby.h"
 #include "narray.h"
+#ifdef __OPENCL__
 #include "narray_local.h"
 #include "na_opencl.h"
-
-#define MAX(a,b) ((a)>(b)?(a):(b))
-#define MIN(a,b) ((a)<(b)?(a):(b))
 
 void
  na_opencl_do_loop_unary(cl_command_queue queue, int nd, char *p1, char *p2, struct slice *s1, struct slice *s2, void* kernel_func )
@@ -31,23 +28,12 @@ void
   s1[i].p = p1;
   s2[i].p = p2;
 ///////////////////////////////////////////////////
-  cl_mem O_buf = NULL;
-  cl_mem A_buf = NULL;
-  cl_mem B_buf = NULL;
   size_t global_item_size = s2[0].n;
   cl_int ret;
 
-  /* create memory buffer */
-  O_buf = clCreateBuffer(context, CL_MEM_READ_WRITE, global_item_size*ps1*sizeof(char), NULL, &ret);
-  A_buf = clCreateBuffer(context, CL_MEM_READ_WRITE, global_item_size*ps1*sizeof(char), NULL, &ret);
-  B_buf = clCreateBuffer(context, CL_MEM_READ_WRITE, global_item_size*ps2*sizeof(char), NULL, &ret);
-
   /* set OpenCL kernel arguments */
-  ret = clSetKernelArg(kernel_func, 0, sizeof(cl_mem), (void *)&O_buf);
-  ret = clSetKernelArg(kernel_func, 1, sizeof(cl_mem), (void *)&A_buf);
-  ret = clSetKernelArg(kernel_func, 2, sizeof(int),    (void *)&ps1);
-  ret = clSetKernelArg(kernel_func, 3, sizeof(cl_mem), (void *)&B_buf);
-  ret = clSetKernelArg(kernel_func, 4, sizeof(int),    (void *)&ps2);
+  ret = clSetKernelArg(kernel_func, 2, sizeof(cl_int), (void *)&ps1);
+  ret = clSetKernelArg(kernel_func, 4, sizeof(cl_int), (void *)&ps2);
 ///////////////////////////////////////////////////
   for(;;) {
     /* set pointers */
@@ -58,20 +44,24 @@ void
       si[i] = s1[i].n;
     }
 ///////////////////////////////////////////////////
-    /* write memory buffer */
-    ret = clEnqueueWriteBuffer(queue, A_buf, CL_FALSE, 0, global_item_size*ps1*sizeof(char), s1[0].p, 0, NULL, NULL);
-    ret = clEnqueueWriteBuffer(queue, B_buf, CL_FALSE, 0, global_item_size*ps2*sizeof(char), s2[0].p, 0, NULL, NULL);
+    /* create memory buffer */
+    cl_mem A_buf = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, global_item_size*MAX(ps1,1)*sizeof(cl_char), s1[0].p, &ret);
+    cl_mem B_buf = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, global_item_size*MAX(ps2,1)*sizeof(cl_char), s2[0].p, &ret);
 
-    /* run commands in queue and make sure all commands in queue is done */
-    clFlush(queue); clFinish(queue);
+    /* set OpenCL kernel arguments */
+    ret = clSetKernelArg(kernel_func, 0, global_item_size*MAX(ps1,1)*sizeof(cl_char), NULL);
+    ret = clSetKernelArg(kernel_func, 1, sizeof(cl_mem), (void *)&A_buf);
+    ret = clSetKernelArg(kernel_func, 3, sizeof(cl_mem), (void *)&B_buf);
+
     /* execute OpenCL kernel */
     ret = clEnqueueNDRangeKernel(queue, kernel_func, 1, NULL, &global_item_size, NULL, 0, NULL, NULL);
     if (ret != CL_SUCCESS) {
       rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
     }
 
-    /* read memory buffer */
-    ret = clEnqueueReadBuffer(queue, O_buf, CL_FALSE, 0, global_item_size*ps1*sizeof(char), s1[0].p, 0, NULL, NULL);
+    /* releasing OpenCL objects */
+    ret = clReleaseMemObject(A_buf);
+    ret = clReleaseMemObject(B_buf);
 ///////////////////////////////////////////////////
     /* rank up */
     do {
@@ -79,10 +69,6 @@ void
 ///////////////////////////////////////////////////
         /* run commands in queue and make sure all commands in queue is done */
         clFlush(queue); clFinish(queue);
-        /* releasing OpenCL objects */
-        ret = clReleaseMemObject(O_buf);
-        ret = clReleaseMemObject(A_buf);
-        ret = clReleaseMemObject(B_buf);
 ///////////////////////////////////////////////////
         return;
       }
@@ -108,26 +94,12 @@ void
   s2[i].p = p2;
   s3[i].p = p3;
 ///////////////////////////////////////////////////
-  cl_mem O_buf = NULL;
-  cl_mem A_buf = NULL;
-  cl_mem B_buf = NULL;
-  cl_mem C_buf = NULL;
   size_t global_item_size = s2[0].n;
   cl_int ret;
 
-  /* create memory buffer */
-  O_buf = clCreateBuffer(context, CL_MEM_READ_WRITE, global_item_size*ps1*sizeof(char), NULL, &ret);
-  A_buf = clCreateBuffer(context, CL_MEM_READ_WRITE, global_item_size*ps1*sizeof(char), NULL, &ret);
-  B_buf = clCreateBuffer(context, CL_MEM_READ_WRITE, global_item_size*ps2*sizeof(char), NULL, &ret);
-  C_buf = clCreateBuffer(context, CL_MEM_READ_WRITE, global_item_size*ps3*sizeof(char), NULL, &ret);
-
   /* set OpenCL kernel arguments */
-  ret = clSetKernelArg(kernel_func, 0, sizeof(cl_mem), (void *)&O_buf);
-  ret = clSetKernelArg(kernel_func, 1, sizeof(cl_mem), (void *)&A_buf);
   ret = clSetKernelArg(kernel_func, 2, sizeof(int),    (void *)&ps1);
-  ret = clSetKernelArg(kernel_func, 3, sizeof(cl_mem), (void *)&B_buf);
   ret = clSetKernelArg(kernel_func, 4, sizeof(int),    (void *)&ps2);
-  ret = clSetKernelArg(kernel_func, 5, sizeof(cl_mem), (void *)&C_buf);
   ret = clSetKernelArg(kernel_func, 6, sizeof(int),    (void *)&ps3);
 ///////////////////////////////////////////////////
   for(;;) {
@@ -141,21 +113,27 @@ void
     }
     /* rank 0 loop */
 ///////////////////////////////////////////////////
-    /* write memory buffer */
-    ret = clEnqueueWriteBuffer(queue, A_buf, CL_FALSE, 0, global_item_size*ps1*sizeof(char), s1[0].p, 0, NULL, NULL);
-    ret = clEnqueueWriteBuffer(queue, B_buf, CL_FALSE, 0, global_item_size*ps2*sizeof(char), s2[0].p, 0, NULL, NULL);
-    ret = clEnqueueWriteBuffer(queue, C_buf, CL_FALSE, 0, global_item_size*ps3*sizeof(char), s3[0].p, 0, NULL, NULL);
+    /* create memory buffer */
+    cl_mem A_buf = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, global_item_size*MAX(ps1,1)*sizeof(cl_char), s1[0].p, &ret);
+    cl_mem B_buf = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, global_item_size*MAX(ps2,1)*sizeof(cl_char), s2[0].p, &ret);
+    cl_mem C_buf = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, global_item_size*MAX(ps3,1)*sizeof(cl_char), s3[0].p, &ret);
 
-    /* run commands in queue and make sure all commands in queue is done */
-    clFlush(queue); clFinish(queue);
+    /* set OpenCL kernel arguments */
+    ret = clSetKernelArg(kernel_func, 0, global_item_size*MAX(ps1,1)*sizeof(cl_char), NULL);
+    ret = clSetKernelArg(kernel_func, 1, sizeof(cl_mem), (void *)&A_buf);
+    ret = clSetKernelArg(kernel_func, 3, sizeof(cl_mem), (void *)&B_buf);
+    ret = clSetKernelArg(kernel_func, 5, sizeof(cl_mem), (void *)&C_buf);
+
     /* execute OpenCL kernel */
     ret = clEnqueueNDRangeKernel(queue, kernel_func, 1, NULL, &global_item_size, NULL, 0, NULL, NULL); //let OpenCL decide the local item size by feeding NULL to 6th arg
     if (ret != CL_SUCCESS) {
       rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
     }
 
-    /* read memory buffer */
-    ret = clEnqueueReadBuffer(queue, O_buf, CL_FALSE, 0, global_item_size*ps1*sizeof(char), s1[0].p, 0, NULL, NULL);
+    /* releasing OpenCL objects */
+    ret = clReleaseMemObject(A_buf);
+    ret = clReleaseMemObject(B_buf);
+    ret = clReleaseMemObject(C_buf);
 ///////////////////////////////////////////////////
     /* rank up */
     do {
@@ -163,11 +141,6 @@ void
 ///////////////////////////////////////////////////
         /* run commands in queue and make sure all commands in queue is done */
         clFlush(queue); clFinish(queue);
-        /* releasing OpenCL objects */
-        ret = clReleaseMemObject(O_buf);
-        ret = clReleaseMemObject(A_buf);
-        ret = clReleaseMemObject(B_buf);
-        ret = clReleaseMemObject(C_buf);
 ///////////////////////////////////////////////////
         return;
       }
