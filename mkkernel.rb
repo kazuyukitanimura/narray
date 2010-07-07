@@ -23,13 +23,13 @@ def mkopenclfuncs(name,t1,t2,func)
     if func[i] != nil && func[i] != "copy"
       f = func[i].
 	gsub(/p0->/,"((#{t1[i]}*)&p0[gid*i1])->").
-	gsub(/p1->/,"((#{t1[i]}*)&p1[gid*i1])->").
-	gsub(/p2->/,"((#{t2[i]}*)&p2[gid*i2])->").
-	gsub(/p3->/,"((#{t2[i]}*)&p3[gid*i3])->").
+	gsub(/p1->/,"((#{t1[i]}*)&p1[gid*i1+b1])->").
+	gsub(/p2->/,"((#{t2[i]}*)&p2[gid*i2+b2])->").
+	gsub(/p3->/,"((#{t2[i]}*)&p3[gid*i3+b3])->").
 	gsub(/\*p0/,"(*(#{t1[i]}*)&p0[gid*i1])").
-	gsub(/\*p1/,"(*(#{t1[i]}*)&p1[gid*i1])").
-	gsub(/\*p2/,"(*(#{t2[i]}*)&p2[gid*i2])").
-	gsub(/\*p3/,"(*(#{t2[i]}*)&p3[gid*i3])").
+	gsub(/\*p1/,"(*(#{t1[i]}*)&p1[gid*i1+b1])").
+	gsub(/\*p2/,"(*(#{t2[i]}*)&p2[gid*i2+b2])").
+	gsub(/\*p3/,"(*(#{t2[i]}*)&p3[gid*i3+b3])").
 	gsub(/type1/,td[i]).
 	gsub(/typecl/,tcl[i]).
 	gsub(/typef/,tr[i])
@@ -154,7 +154,7 @@ EOM
 #  Unary Funcs
 #
 $func_body = 
-  "__kernel void #name#C(__local char* p0, __global char* p1, int i1, __global char* p2, int i2)
+  "__kernel void #name#C(__local char* p0, __global char* p1, int i1, int b1, __global char* p2, int i2, int b2)
 {
   GLOBAL_ID
   OPERATION
@@ -342,13 +342,15 @@ mkopenclfuncs('DivU', $opencl_types, $opencl_types,
 # ["p1->r = p2->r; p1->i = -p2->i;"]*2 +
 # [nil]
 #)
-#
-#mkfuncs('Not', [$data_types[1]]*9, $data_types,
-# [nil] +
-# ["*p1 = (*p2==0) ? 1:0;"]*5 +
-# ["*p1 = (p2->r==0 && p2->i==0) ? 1:0;"]*2 +
-# ["*p1 = RTEST(*p2) ? 0:1;"]
-#)
+
+mkopenclfuncs('Not', [$opencl_types[1]]*9, $opencl_types,
+ [nil] +
+ ["*p1 = (*p2==0) ? 1:0;"]*4 +
+ [nil] +
+ ["*p1 = (p2->r==0 && p2->i==0) ? 1:0;"] +
+ [nil] +
+ [nil]
+)
 
 mkopenclfuncs('BRv', $opencl_types, $opencl_types,
  [nil] +
@@ -523,7 +525,7 @@ $func_body =
 #   Binary Funcs
 #
 $func_body = 
-  "__kernel void #name#C(__local char* p0, __global char* p1, int i1, __global char* p2, int i2, __global char* p3, int i3)
+  "__kernel void #name#C(__local char* p0, __global char* p1, int i1, int b1, __global char* p2, int i2, int b2, __global char* p3, int i3, int b3)
 {
   GLOBAL_ID
   OPERATION
