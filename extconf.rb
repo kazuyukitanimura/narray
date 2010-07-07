@@ -120,40 +120,35 @@ if have_header("OpenCL/opencl.h") # Apple OpenCL
   $LDFLAGS += " -framework opencl"
 else # find Other OpenCL
   if /cygwin|mingw/ =~ RUBY_PLATFORM && find_library("OpenCL","clGetDeviceInfo", ENV["PATH"])
-    nvidia_sdk = "c:/ProgramData/NVIDIA Corporation/NVIDIA GPU Computing SDK"
-    nvidia_lib = "#{nvidia_sdk}/OpenCL/common/lib/Win32"
+    nvidia_lib = $LIBPATH[-1]
+    nvidia_inc = $LIBPATH[-1].chomp("/lib/Win32") + "/inc"
 
-    amd_sdk = "c:/Program Files/ATI Stream"
-    amd_lib = "#{amd_sdk}/bin/x86"
+    amd_lib = $LIBPATH[-1]
+    amd_inc = $LIBPATH[-1].chomp("/bin/x86") + "/include"
   elsif find_library("OpenCL","clGetDeviceInfo", ENV["LD_LIBRARY_PATH"])
-    nvidia_sdk = "#{ENV['HOME']}/NVIDIA_GPU_Computing_SDK"
     if /x86_64/ =~ RUBY_PLATFORM
-      nvidia_lib = "#{nvidia_sdk}/OpenCL/common/lib/Linux64"
+      nvidia_lib = $LIBPATH[-1]
+      nvidia_inc = $LIBPATH[-1].chomp("/lib/Linux64") + "/inc"
 
-      amd_sdk = "#{ENV['HOME']}/ati-stream-sdk-v2.0-beta4-lnx64"
-      amd_lib = "#{amd_sdk}/lib/x86_64"
+      amd_lib = $LIBPATH[-1]
+      amd_inc = $LIBPATH[-1].chomp("/lib/x86_64") + "/include"
     else
-      nvidia_lib = "#{nvidia_sdk}/OpenCL/common/lib/Linux32"
+      nvidia_lib = $LIBPATH[-1]
+      nvidia_inc = $LIBPATH[-1].chomp("/lib/Linux32") + "/inc"
 
-      amd_sdk = "#{ENV['HOME']}/ati-stream-sdk-v2.0-beta4-lnx32"
-      amd_lib = "#{amd_sdk}/lib/x86"
+      amd_lib = $LIBPATH[-1]
+      amd_inc = $LIBPATH[-1].chomp("/lib/x86") + "/include"
     end
-    foxc_sdk = "../../../.."
-    foxc_lib = "#{foxc_sdk}/lib"
-    foxc_inc = "#{foxc_sdk}/include"
+    foxc_lib = $LIBPATH[-1]
+    foxc_inc = $LIBPATH[-1].chomp("/lib") + "/include"
   end
-  nvidia_inc = "#{nvidia_sdk}/OpenCL/common/inc"
-  amd_inc = "#{amd_sdk}/include"
 
   if find_header("CL/cl.h", nvidia_inc)
     have_header("CL/cl.h")
-    dir_config("narray", nvidia_inc, nvidia_lib)
   elsif find_header("CL/cl.h", foxc_inc)
     have_header("CL/cl.h")
-    #dir_config("narray", foxc_inc, "#{foxc_lib} -Wl,-rpath,#{foxc_lib}")
   elsif find_header("CL/cl.h", amd_inc)
     have_header("CL/cl.h")
-    dir_config("narray", amd_inc, "#{amd_lib} -Wl,-rpath,#{amd_lib}")
   end
 end
 

@@ -13,43 +13,88 @@
 #include "ruby.h"
 #include "narray.h"
 #include "narray_local.h"
-
-#ifdef HAVE_OPENCL_OPENCL_H
-#include <OpenCL/opencl.h>
-#else
-#include <CL/cl.h>
-#endif
-
 #include "na_opencl.h"
-#define MAX_SOURCE_SIZE (0x100000)
 
-/* global variables */
-cl_device_id device_id = NULL;
-cl_context context = NULL;
+#define MAX(a,b) ((a)>(b)?(a):(b))
+#define MIN(a,b) ((a)<(b)?(a):(b))
 
 void
- na_opencl_do_binary(cl_command_queue command_queue, cl_kernel kernel, size_t global_item_size, cl_mem O_buf, cl_mem A_buf, int i1, cl_mem B_buf, int i2, cl_mem C_buf, int i3)
+ na_opencl_do_loop_unary(cl_command_queue queue, int nd, char *p1, char *p2, struct slice *s1, struct slice *s2, void* kernel_func )
 {
+  int *si;
+  int  i;
+  int  ps1 = s1[0].pstep;
+  int  ps2 = s2[0].pstep;
+
+  i  = nd;
+  si = ALLOCA_N(int,nd);
+  s1[i].p = p1;
+  s2[i].p = p2;
+///////////////////////////////////////////////////
+  cl_mem O_buf = NULL;
+  cl_mem A_buf = NULL;
+  cl_mem B_buf = NULL;
+  size_t global_item_size = s2[0].n;
   cl_int ret;
 
-  /* set OpenCL kernel arguments */
-  ret = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&O_buf);
-  ret = clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&A_buf);
-  ret = clSetKernelArg(kernel, 2, sizeof(int),    (void *)&i1);
-  ret = clSetKernelArg(kernel, 3, sizeof(cl_mem), (void *)&B_buf);
-  ret = clSetKernelArg(kernel, 4, sizeof(int),    (void *)&i2);
-  ret = clSetKernelArg(kernel, 5, sizeof(cl_mem), (void *)&C_buf);
-  ret = clSetKernelArg(kernel, 6, sizeof(int),    (void *)&i3);
+  /* create memory buffer */
+  O_buf = clCreateBuffer(context, CL_MEM_READ_WRITE, global_item_size*ps1*sizeof(char), NULL, &ret);
+  A_buf = clCreateBuffer(context, CL_MEM_READ_WRITE, global_item_size*ps1*sizeof(char), NULL, &ret);
+  B_buf = clCreateBuffer(context, CL_MEM_READ_WRITE, global_item_size*ps2*sizeof(char), NULL, &ret);
 
-  /* execute OpenCL kernel */
-  ret = clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &global_item_size, NULL, 0, NULL, NULL); //let OpenCL decide the local item size by feeding NULL to 6th arg
-  if (ret != CL_SUCCESS) {
-    rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
+  /* set OpenCL kernel arguments */
+  ret = clSetKernelArg(kernel_func, 0, sizeof(cl_mem), (void *)&O_buf);
+  ret = clSetKernelArg(kernel_func, 1, sizeof(cl_mem), (void *)&A_buf);
+  ret = clSetKernelArg(kernel_func, 2, sizeof(int),    (void *)&ps1);
+  ret = clSetKernelArg(kernel_func, 3, sizeof(cl_mem), (void *)&B_buf);
+  ret = clSetKernelArg(kernel_func, 4, sizeof(int),    (void *)&ps2);
+///////////////////////////////////////////////////
+  for(;;) {
+    /* set pointers */
+    while (i > 0) {
+      --i;
+      s2[i].p = s2[i].pbeg + s2[i+1].p;
+      s1[i].p = s1[i].pbeg + s1[i+1].p;
+      si[i] = s1[i].n;
+    }
+///////////////////////////////////////////////////
+    /* write memory buffer */
+    ret = clEnqueueWriteBuffer(queue, A_buf, CL_FALSE, 0, global_item_size*ps1*sizeof(char), s1[0].p, 0, NULL, NULL);
+    ret = clEnqueueWriteBuffer(queue, B_buf, CL_FALSE, 0, global_item_size*ps2*sizeof(char), s2[0].p, 0, NULL, NULL);
+
+    /* run commands in queue and make sure all commands in queue is done */
+    clFlush(queue); clFinish(queue);
+    /* execute OpenCL kernel */
+    ret = clEnqueueNDRangeKernel(queue, kernel_func, 1, NULL, &global_item_size, NULL, 0, NULL, NULL);
+    if (ret != CL_SUCCESS) {
+      rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
+    }
+
+    /* read memory buffer */
+    ret = clEnqueueReadBuffer(queue, O_buf, CL_FALSE, 0, global_item_size*ps1*sizeof(char), s1[0].p, 0, NULL, NULL);
+///////////////////////////////////////////////////
+    /* rank up */
+    do {
+      if ( ++i >= nd ) {
+///////////////////////////////////////////////////
+        /* run commands in queue and make sure all commands in queue is done */
+        clFlush(queue); clFinish(queue);
+        /* releasing OpenCL objects */
+        ret = clReleaseMemObject(O_buf);
+        ret = clReleaseMemObject(A_buf);
+        ret = clReleaseMemObject(B_buf);
+///////////////////////////////////////////////////
+        return;
+      }
+    } while ( --si[i] == 0 );
+    /* next point */
+    s1[i].p += s1[i].pstep;
+    s2[i].p += s2[i].pstep;
   }
 }
 
 void
- na_opencl_allocate( int nd, char *p1, char *p2, char *p3, struct slice *s1, struct slice *s2, struct slice *s3, void* kernel_func )
+ na_opencl_do_loop_binary(cl_command_queue queue, int nd, char *p1, char *p2, char *p3, struct slice *s1, struct slice *s2, struct slice *s3, void* kernel_func )
 {
   int i;
   int ps1 = s1[0].pstep;
@@ -63,15 +108,27 @@ void
   s2[i].p = p2;
   s3[i].p = p3;
 ///////////////////////////////////////////////////
-  cl_mem O_buffer = NULL;
-  cl_mem A_buffer = NULL;
-  cl_mem B_buffer = NULL;
-  cl_mem C_buffer = NULL;
-  cl_command_queue command_queue = NULL;
+  cl_mem O_buf = NULL;
+  cl_mem A_buf = NULL;
+  cl_mem B_buf = NULL;
+  cl_mem C_buf = NULL;
+  size_t global_item_size = s2[0].n;
   cl_int ret;
 
-  /* create OpenCL command queue */
-  command_queue = clCreateCommandQueue(context, device_id, 0, &ret);
+  /* create memory buffer */
+  O_buf = clCreateBuffer(context, CL_MEM_READ_WRITE, global_item_size*ps1*sizeof(char), NULL, &ret);
+  A_buf = clCreateBuffer(context, CL_MEM_READ_WRITE, global_item_size*ps1*sizeof(char), NULL, &ret);
+  B_buf = clCreateBuffer(context, CL_MEM_READ_WRITE, global_item_size*ps2*sizeof(char), NULL, &ret);
+  C_buf = clCreateBuffer(context, CL_MEM_READ_WRITE, global_item_size*ps3*sizeof(char), NULL, &ret);
+
+  /* set OpenCL kernel arguments */
+  ret = clSetKernelArg(kernel_func, 0, sizeof(cl_mem), (void *)&O_buf);
+  ret = clSetKernelArg(kernel_func, 1, sizeof(cl_mem), (void *)&A_buf);
+  ret = clSetKernelArg(kernel_func, 2, sizeof(int),    (void *)&ps1);
+  ret = clSetKernelArg(kernel_func, 3, sizeof(cl_mem), (void *)&B_buf);
+  ret = clSetKernelArg(kernel_func, 4, sizeof(int),    (void *)&ps2);
+  ret = clSetKernelArg(kernel_func, 5, sizeof(cl_mem), (void *)&C_buf);
+  ret = clSetKernelArg(kernel_func, 6, sizeof(int),    (void *)&ps3);
 ///////////////////////////////////////////////////
   for(;;) {
     /* set pointers */
@@ -84,38 +141,33 @@ void
     }
     /* rank 0 loop */
 ///////////////////////////////////////////////////
-    /* create memory buffer */
-    O_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, s2[0].n*ps1*sizeof(char), NULL, &ret);
-    A_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, s2[0].n*ps1*sizeof(char), NULL, &ret);
-    B_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, s2[0].n*ps2*sizeof(char), NULL, &ret);
-    C_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, s2[0].n*ps3*sizeof(char), NULL, &ret);
-
     /* write memory buffer */
-    ret = clEnqueueWriteBuffer(command_queue, A_buffer, CL_TRUE, 0, s2[0].n*ps1*sizeof(char),s1[0].p, 0, NULL, NULL);
-    ret = clEnqueueWriteBuffer(command_queue, B_buffer, CL_TRUE, 0, s2[0].n*ps2*sizeof(char),s2[0].p, 0, NULL, NULL);
-    ret = clEnqueueWriteBuffer(command_queue, C_buffer, CL_TRUE, 0, s2[0].n*ps3*sizeof(char),s3[0].p, 0, NULL, NULL);
+    ret = clEnqueueWriteBuffer(queue, A_buf, CL_FALSE, 0, global_item_size*ps1*sizeof(char), s1[0].p, 0, NULL, NULL);
+    ret = clEnqueueWriteBuffer(queue, B_buf, CL_FALSE, 0, global_item_size*ps2*sizeof(char), s2[0].p, 0, NULL, NULL);
+    ret = clEnqueueWriteBuffer(queue, C_buf, CL_FALSE, 0, global_item_size*ps3*sizeof(char), s3[0].p, 0, NULL, NULL);
 
-    //na_opencl_do_binary(command_queue, kernel_func, O_buffer, A_buffer, B_buffer, C_buffer, mem_size);
-    na_opencl_do_binary(command_queue, kernel_func, s2[0].n, O_buffer, A_buffer, ps1, B_buffer, ps2, C_buffer, ps3);
+    /* run commands in queue and make sure all commands in queue is done */
+    clFlush(queue); clFinish(queue);
+    /* execute OpenCL kernel */
+    ret = clEnqueueNDRangeKernel(queue, kernel_func, 1, NULL, &global_item_size, NULL, 0, NULL, NULL); //let OpenCL decide the local item size by feeding NULL to 6th arg
+    if (ret != CL_SUCCESS) {
+      rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
+    }
 
     /* read memory buffer */
-    ret = clEnqueueReadBuffer(command_queue, O_buffer, CL_TRUE, 0, s2[0].n*ps1*sizeof(char),s1[0].p, 0, NULL, NULL);
-
-    /* run commands in queue */
-    ret = clFlush(command_queue);
-    /* make sure all commands in queue is done */
-    ret = clFinish(command_queue);
-    /* releasing OpenCL objects */
-    ret = clReleaseMemObject(O_buffer);
-    ret = clReleaseMemObject(A_buffer);
-    ret = clReleaseMemObject(B_buffer);
-    ret = clReleaseMemObject(C_buffer);
+    ret = clEnqueueReadBuffer(queue, O_buf, CL_FALSE, 0, global_item_size*ps1*sizeof(char), s1[0].p, 0, NULL, NULL);
 ///////////////////////////////////////////////////
     /* rank up */
     do {
       if ( ++i >= nd ) {
 ///////////////////////////////////////////////////
-        ret = clReleaseCommandQueue(command_queue);
+        /* run commands in queue and make sure all commands in queue is done */
+        clFlush(queue); clFinish(queue);
+        /* releasing OpenCL objects */
+        ret = clReleaseMemObject(O_buf);
+        ret = clReleaseMemObject(A_buf);
+        ret = clReleaseMemObject(B_buf);
+        ret = clReleaseMemObject(C_buf);
 ///////////////////////////////////////////////////
         return;
       }
@@ -130,8 +182,6 @@ void
 void
  Init_na_opencl()
 {
-  //cl_device_id device_id = NULL;
-  //cl_context context = NULL;
   cl_program program = NULL;
   cl_platform_id platform_id = NULL;
   cl_uint ret_num_devices;
@@ -142,6 +192,7 @@ void
   FILE *fp;
   char *kernel_src_code;
   size_t kernel_src_size;
+  const char buildOptions[] = HDRDIR;
 
   /* load kernel source code */
   fp = fopen(fileName, "r");
@@ -164,18 +215,37 @@ void
   free(kernel_src_code);
 
   /* build the kernel program */
-  ret = clBuildProgram(program, 1, &device_id, NULL, NULL, NULL);
+  ret = clBuildProgram(program, 1, &device_id, buildOptions, NULL, NULL);
   if (ret != CL_SUCCESS) {
+    switch (ret) {
+      case CL_INVALID_PROGRAM:
+        fprintf(stderr, "program is not a valid program object.\n");break;
+      case CL_INVALID_VALUE:
+        fprintf(stderr, "device_list is NULL and num_devices is greater than zero, or if device_list is not NULL and num_devices is zero.\nor\npfn_notify is NULL but user_data is not NULL.\n");break;
+      case CL_INVALID_DEVICE:
+        fprintf(stderr, "OpenCL devices listed in device_list are not in the list of devices associated with program.\n");break;
+      case CL_INVALID_BINARY:
+        fprintf(stderr, "program is created with clCreateWithProgramWithBinary and devices listed in device_list do not have a valid program binary loaded.\n");break;
+      case CL_INVALID_BUILD_OPTIONS:
+        fprintf(stderr, "the build options specified by options are invalid.\n");break;
+      case CL_INVALID_OPERATION:
+        fprintf(stderr, "the build of a program executable for any of the devices listed in device_list by a previous call to clBuildProgram for program has not completed.\nor\nthere are kernel objects attached to program.\n");break;
+      case CL_COMPILER_NOT_AVAILABLE:
+        fprintf(stderr, "program is created with clCreateProgramWithSource and a compiler is not available i.e. CL_DEVICE_COMPILER_AVAILABLE specified in the table of OpenCL Device Queries for clGetDeviceInfo is set to CL_FALSE.\n");break;
+      case CL_BUILD_PROGRAM_FAILURE:
+        fprintf(stderr, "there is a failure to build the program executable. This error will be returned if clBuildProgram does not return until the build has completed.\n");break;
+      case CL_OUT_OF_HOST_MEMORY:
+        fprintf(stderr, "there is a failure to allocate resources required by the OpenCL implementation on the host.\n");break;
+    }
     size_t len;
     char log[2048];
     clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, sizeof(log), log, &len);
-    rb_raise(rb_eRuntimeError, "Failed building %s\n", fileName);
+    rb_raise(rb_eRuntimeError, "Failed building %s\n%s\n%s\n", fileName, log);
   }
 
   /* create OpenCL kernels */
   CREATE_OPENCL_KERNELS(program, ret);
 
-/////////////////////////////////////////////////////
 //  /* releasing OpenCL objetcs */
 //  ret = clReleaseKernel((cl_kernel)AddBFuncs[NA_LINT]); //for dev
 //  ret = clReleaseKernel((cl_kernel)SbtBFuncs[NA_LINT]); //for dev
@@ -186,7 +256,6 @@ void
 //  ret = clReleaseKernel((cl_kernel)MulSbtFuncs[NA_LINT]); //for dev
 //  ret = clReleaseProgram(program); //for dev
 //  ret = clReleaseContext(context); //for dev
-/////////////////////////////////////////////////////
 
 }
 #endif

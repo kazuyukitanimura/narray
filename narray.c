@@ -112,6 +112,10 @@ static void
     ary->ptr = NULL;
 #endif
   }
+#if (defined(HAVE_OPENCL_OPENCL_H) || defined(HAVE_CL_CL_H))
+  /* releasing OpenCL objects */
+  clReleaseCommandQueue(ary->queue);
+#endif
   xfree(ary);
 }
 
@@ -156,6 +160,10 @@ struct NARRAY*
       ary->shape[i] = shape[i];
   }
   ary->ref = Qtrue;
+#if (defined(HAVE_OPENCL_OPENCL_H) || defined(HAVE_CL_CL_H))
+  /* create OpenCL command queue */
+  ary->queue = clCreateCommandQueue(context, device_id, 0, NULL);
+#endif
   return ary;
 }
 

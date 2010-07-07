@@ -74,14 +74,14 @@ print <<EOM
   NO WARRANTY.
 */
 #pragma OPENCL EXTENSION cl_khr_byte_addressable_store : enable
-#pragma OPENCL EXTENSION cl_khr_fp64 : enable
+//#pragma OPENCL EXTENSION cl_khr_fp64 : enable
 //#include <ruby.h>
 //#include "narray.h"
 //#include "narray_local.h"
 ///* isalpha(3) etc. */
 //#include <ctype.h>
 typedef struct { float r,i; }  scomplex;
-typedef struct { double r,i; } dcomplex;
+//typedef struct { double r,i; } dcomplex;
 /*
 const int na_upcast[NA_NTYPES][NA_NTYPES] = {
 #{upcast_ary} };
@@ -147,23 +147,20 @@ EOM
 #}
 #"
 #mksetfuncs('Set','','',data)
+
+
+
 #
+#  Unary Funcs
 #
-#
-##
-##  Unary Funcs
-##
-#$func_body = 
-#  "static void #name#C(int n, char *p1, int i1, char *p2, int i2)
-#{
-#  for (; n; --n) {
-#    OPERATION
-#    p1+=i1; p2+=i2;
-#  }
-#}
-#"
-#
-#
+$func_body = 
+  "__kernel void #name#C(__global char* p0, __global char* p1, int i1, __global char* p2, int i2)
+{
+  GLOBAL_ID
+  OPERATION
+}
+"
+
 #mkfuncs('Swp', $swap_types, $swap_types,
 # [nil] +
 # ["*p1 = *p2;"] + 
@@ -200,53 +197,66 @@ EOM
 ##endif
 ##endif
 #EOM
-#
-#mkfuncs('Neg', $data_types, $data_types,
-# [nil] +
-# ["*p1 = -*p2;"]*5 + 
-# ["p1->r = -p2->r;
-#    p1->i = -p2->i;"]*2 +
-# ["*p1 = rb_funcall(*p2,na_id_minus,0);"]
-#)
-#
-#mkfuncs('AddU', $data_types, $data_types,
-# [nil] +
-# ["*p1 += *p2;"]*5 + 
-# ["p1->r += p2->r;
-#    p1->i += p2->i;"]*2 +
-# ["*p1 = rb_funcall(*p1,'+',1,*p2);"]
-#)
-#
-#mkfuncs('SbtU', $data_types, $data_types,
-# [nil] +
-# ["*p1 -= *p2;"]*5 + 
-# ["p1->r -= p2->r;
-#    p1->i -= p2->i;"]*2 +
-# ["*p1 = rb_funcall(*p1,'-',1,*p2);"]
-#)
-#
-#mkfuncs('MulU', $data_types, $data_types,
-# [nil] +
-# ["*p1 *= *p2;"]*5 + 
-# ["type1 x = *p1;
-#    p1->r = x.r*p2->r - x.i*p2->i;
-#    p1->i = x.r*p2->i + x.i*p2->r;"]*2 +
-# ["*p1 = rb_funcall(*p1,'*',1,*p2);"]
-#)
-#
-#mkfuncs('DivU', $data_types, $data_types,
-# [nil] +
-# ["if (*p2==0) {na_zerodiv();}
-#    *p1 /= *p2;"]*3 + 
-# ["*p1 /= *p2;"]*2 + 
-# ["type1 x = *p1;
-#    typef a = p2->r*p2->r + p2->i*p2->i;
-#    p1->r = (x.r*p2->r + x.i*p2->i)/a;
-#    p1->i = (x.i*p2->r - x.r*p2->i)/a;"]*2 +
-# ["*p1 = rb_funcall(*p1,'/',1,*p2);"]
-#)
-#
-#
+
+mkopenclfuncs('Neg', $opencl_types, $opencl_types,
+ [nil] +
+ ["*p0 = -*p2;"]*4 + 
+ [nil] +
+ ["p0->r = -p2->r;
+  p0->i = -p2->i;"] +
+ [nil] +
+ [nil]
+)
+
+mkopenclfuncs('AddU', $opencl_types, $opencl_types,
+ [nil] +
+ ["*p0 = *p1 + *p2;"]*4 + 
+ [nil] +
+ ["p0->r = p1->r + p2->r;
+  p0->i = p1->i + p2->i;"] +
+ [nil] +
+ [nil]
+)
+
+mkopenclfuncs('SbtU', $opencl_types, $opencl_types,
+ [nil] +
+ ["*p0 = *p1 - *p2;"]*4 + 
+ [nil] +
+ ["p0->r = p1->r - p2->r;
+  p0->i = p1->i - p2->i;"] +
+ [nil] +
+ [nil]
+)
+
+mkopenclfuncs('MulU', $opencl_types, $opencl_types,
+ [nil] +
+ ["*p0 = *p1 * *p2;"]*4 + 
+ [nil] +
+ ["typecl x = *p1;
+  typecl y = *p2;
+  p0->r = x.r*y.r - x.i*y.i;
+  p0->i = x.r*y.i + x.i*y.r;"] +
+ [nil] +
+ [nil]
+)
+
+mkopenclfuncs('DivU', $opencl_types, $opencl_types,
+ [nil] +
+ #["if (*p2==0) {na_zerodiv();}
+ #   *p1 /= *p2;"]*3 + 
+ #["*p1 /= *p2;"]*2 + 
+ ["*p0 = *p1 / *p2;"]*4 + 
+ [nil] +
+ ["typecl x = *p1;
+  typecl y = *p2;
+  typef a = y.r*y.r + y.i*y.i;
+  p0->r = (x.r*y.r + x.i*y.i)/a;
+  p0->i = (x.i*y.r - x.r*y.i)/a;"] +
+ [nil] +
+ [nil]
+)
+
+
 ## method: imag=
 #mkfuncs('ImgSet',$data_types,$real_types,
 # [nil]*6 +
@@ -319,13 +329,13 @@ EOM
 # ["*p1 = (p2->r==0 && p2->i==0) ? 1:0;"]*2 +
 # ["*p1 = RTEST(*p2) ? 0:1;"]
 #)
-#
-#mkfuncs('BRv', $data_types, $data_types, [nil] +
-# ["*p1 = ~(*p2);"]*3 +
-# [nil]*4 +
-# ["*p1 = rb_funcall(*p2,'~',0);"]
-#)
-#
+
+mkopenclfuncs('BRv', $opencl_types, $opencl_types,
+ [nil] +
+ ["*p0 = ~(*p2);"]*3 +
+ [nil]*5
+)
+
 #mkfuncs('Min', $data_types, $data_types, [nil] +
 # ["if (*p1>*p2) *p1=*p2;"]*3 +
 # ["if (notnan#C((type1*)p2) && *p1>*p2) *p1=*p2;"]*2 +
@@ -362,27 +372,27 @@ EOM
 #{ VALUE r = rb_funcall(**p1, na_id_compare, 1, **p2);
 #  return NUM2INT(r); }"]
 #)
-#
-## indgen
-#$func_body = 
-#  "static void #name#C(int n, char *p1, int i1, int p2, int i2)
-#{
-#  for (; n; --n) {
-#    OPERATION
-#    p1+=i1; p2+=i2;
-#  }
-#}
-#"
-#mkfuncs('IndGen',$data_types,[$data_types[3]]*8,
+
+# indgen
+$func_body = 
+  "__kernel void #name#C(__global char* p0, __global char* p1, int i1, int p2, int i2)
+{
+  GLOBAL_ID
+  OPERATION
+}
+"
+#mkopenclfuncs('IndGen',$opencl_types,[$opencl_types[3]]*8,
 # [nil] +
-# ["*p1 = p2;"]*5 +
+# ["*p1 = p2;"]*4 +
+# [nil] +
 # ["p1->r = p2;
-#   p1->i = 0;"]*2 +
-# ["*p1 = INT2FIX(p2);"]
+#   p1->i = 0;"] +
+# [nil] +
+# [nil]
 #)
-#
-#
-#
+
+
+
 #$func_body = 
 #"static void #name#C(int n, char *p1, int i1, char *p2, int i2)
 #{
@@ -492,7 +502,6 @@ EOM
 #
 #   Binary Funcs
 #
-
 $func_body = 
   "__kernel void #name#C(__global char* p0, __global char* p1, int i1, __global char* p2, int i2, __global char* p3, int i3)
 {
@@ -503,30 +512,36 @@ $func_body =
 
 mkopenclfuncs('AddB', $opencl_types, $opencl_types,
  [nil] +
- ["*p0 = *p2 + *p3;"]*5 + 
+ ["*p0 = *p2 + *p3;"]*4 + 
+ [nil] +
  ["p0->r = p2->r + p3->r;
-  p0->i = p2->i + p3->i;"]*2 +
+  p0->i = p2->i + p3->i;"] +
+ [nil] +
  [nil]
 )
 
 mkopenclfuncs('SbtB', $opencl_types, $opencl_types,
  [nil] +
- ["*p0 = *p2 - *p3;"]*5 + 
+ ["*p0 = *p2 - *p3;"]*4 + 
+ [nil] +
  ["p0->r = p2->r - p3->r;
-  p0->i = p2->i - p3->i;"]*2 +
+  p0->i = p2->i - p3->i;"] +
+ [nil] +
  [nil]
 )
 
 mkopenclfuncs('MulB', $opencl_types, $opencl_types,
  [nil] +
- ["*p0 = *p2 * *p3;"]*5 + 
+ ["*p0 = *p2 * *p3;"]*4 + 
+ [nil] +
  #["typecl x = *p2;
  # p0->r = x.r*p3->r - x.i*p3->i;
  # p0->i = x.r*p3->i + x.i*p3->r;"]*2 +
  ["typecl x = *p2;
   typecl y = *p3;
   p0->r = x.r*y.r - x.i*y.i;
-  p0->i = x.r*y.i + x.i*y.r;"]*2 +
+  p0->i = x.r*y.i + x.i*y.r;"] +
+ [nil] +
  [nil]
 )
 
@@ -535,7 +550,8 @@ mkopenclfuncs('DivB', $opencl_types, $opencl_types,
  #["if (*p3==0) {na_zerodiv();};
  #   *p1 = *p2 / *p3;"]*3 +
  #["*p1 = *p2 / *p3;"]*2 +
- ["*p0 = *p2 / *p3;"]*5 +
+ ["*p0 = *p2 / *p3;"]*4 +
+ [nil] +
  #["typecl x = *p2;
  # typef a = p3->r*p3->r + p3->i*p3->i;
  # p0->r = (x.r*p3->r + x.i*p3->i)/a;
@@ -544,113 +560,122 @@ mkopenclfuncs('DivB', $opencl_types, $opencl_types,
   typecl y = *p3;
   typef a = y.r*y.r + y.i*y.i;
   p0->r = (x.r*y.r + x.i*y.i)/a;
-  p0->i = (x.i*y.r - x.r*y.i)/a;"]*2 +
+  p0->i = (x.i*y.r - x.r*y.i)/a;"] +
+ [nil] +
  [nil]
 )
 
 mkopenclfuncs('ModB', $opencl_types, $opencl_types,
  [nil] +
  ["*p0 = *p2 % *p3;"]*3 + 
- ["*p0 = fmod(*p2, *p3);"]*2 + 
+ ["*p0 = fmod(*p2, *p3);"] + 
+ [nil] +
  [nil]*3
 )
 
 mkopenclfuncs('MulAdd', $opencl_types, $opencl_types,
  [nil] +
- ["*p0 = *p1 + *p2 * *p3;"]*5 + 
+ ["*p0 = *p1 + *p2 * *p3;"]*4 + 
+ [nil] +
  #["typecl x = *p2;
  # p0->r = p1->r + x.r*p3->r - x.i*p3->i;
  # p0->i = p1->i + x.r*p3->i + x.i*p3->r;"]*2 +
  ["typecl x = *p2;
   typecl y = *p3;
   p0->r = p1->r + x.r*y.r - x.i*y.i;
-  p0->i = p1->i + x.r*y.i + x.i*y.r;"]*2 +
+  p0->i = p1->i + x.r*y.i + x.i*y.r;"] +
+ [nil] +
  [nil]
 )
 
 mkopenclfuncs('MulSbt', $opencl_types, $opencl_types,
  [nil] +
- ["*p0 = *p1 - *p2 * *p3;"]*5 + 
+ ["*p0 = *p1 - *p2 * *p3;"]*4 + 
+ [nil] +
  #["typecl x = *p2;
  # p0->r = p1->r - x.r*p3->r - x.i*p3->i;
  # p0->i = p1->i - x.r*p3->i + x.i*p3->r;"]*2 +
  ["typecl x = *p2;
   typecl y = *p3;
   p0->r = p1->r - x.r*y.r - x.i*y.i;
-  p0->i = p1->i - x.r*y.i + x.i*y.r;"]*2 +
+  p0->i = p1->i - x.r*y.i + x.i*y.r;"] +
+ [nil] +
  [nil]
 )
 
+
 #
-##
-##   Bit operator
-##
+#   Bit operator
 #
-#mkfuncs('BAn', $data_types, $data_types,
-# [nil] +
-# ["*p1 = *p2 & *p3;"]*3 + 
-# [nil]*4 +
-# ["*p1 = rb_funcall(*p2,'&',1,*p3);"]
-#)
+
+mkopenclfuncs('BAn', $opencl_types, $opencl_types,
+ [nil] +
+ ["*p0 = *p2 & *p3;"]*3 + 
+ [nil]*5
+)
+
+mkopenclfuncs('BOr', $opencl_types, $opencl_types,
+ [nil] +
+ ["*p0 = *p2 | *p3;"]*3 + 
+ [nil]*5
+)
+
+mkopenclfuncs('BXo', $opencl_types, $opencl_types,
+ [nil] +
+ ["*p0 = *p2 ^ *p3;"]*3 + 
+ [nil]*5
+)
+
+
 #
-#mkfuncs('BOr', $data_types, $data_types,
-# [nil] +
-# ["*p1 = *p2 | *p3;"]*3 + 
-# [nil]*4 +
-# ["*p1 = rb_funcall(*p2,'|',1,*p3);"]
-#)
+#   Comparison
 #
-#mkfuncs('BXo', $data_types, $data_types,
-# [nil] +
-# ["*p1 = *p2 ^ *p3;"]*3 + 
-# [nil]*4 +
-# ["*p1 = rb_funcall(*p2,'^',1,*p3);"]
-#)
-#
-#
-##
-##   Comparison
-##
-#
-#mkfuncs('Eql', [$data_types[1]]*9, $data_types,
-# [nil] +
-# ["*p1 = (*p2==*p3) ? 1:0;"]*5 +
-# ["*p1 = (p2->r==p3->r) && (p2->i==p3->i) ? 1:0;"]*2 +
-# ["*p1 = RTEST(rb_equal(*p2, *p3)) ? 1:0;"]
-#)
-#
-#mkfuncs('Cmp', [$data_types[1]]*9, $data_types,
-# [nil] +
-# ["if (*p2>*p3) *p1=1;
-#    else if (*p2<*p3) *p1=2;
-#    else *p1=0;"]*5 +
-# [nil]*2 +
-# ["int v = NUM2INT(rb_funcall(*p2,na_id_compare,1,*p3));
-#    if (v>0) *p1=1; else if (v<0) *p1=2; else *p1=0;"]
-#)
-#
-#mkfuncs('And', [$data_types[1]]*9, $data_types,
-# [nil] +
-# ["*p1 = (*p2!=0 && *p3!=0) ? 1:0;"]*5 +
-# ["*p1 = ((p2->r!=0||p2->i!=0) && (p3->r!=0||p3->i!=0)) ? 1:0;"]*2 +
-# ["*p1 = (RTEST(*p2) && RTEST(*p3)) ? 1:0;"]
-#)
-#
-#mkfuncs('Or_', [$data_types[1]]*9, $data_types,
-# [nil] +
-# ["*p1 = (*p2!=0 || *p3!=0) ? 1:0;"]*5 +
-# ["*p1 = ((p2->r!=0||p2->i!=0) || (p3->r!=0||p3->i!=0)) ? 1:0;"]*2 +
-# ["*p1 = (RTEST(*p2) || RTEST(*p3)) ? 1:0;"]
-#)
-#
-#mkfuncs('Xor', [$data_types[1]]*9, $data_types,
-# [nil] +
-# ["*p1 = ((*p2!=0) == (*p3!=0)) ? 0:1;"]*5 +
-# ["*p1 = ((p2->r!=0||p2->i!=0) == (p3->r!=0||p3->i!=0)) ? 0:1;"]*2 +
-# ["*p1 = (RTEST(*p2) == RTEST(*p3)) ? 0:1;"]
-#)
-#
-#
+
+mkopenclfuncs('Eql', [$opencl_types[1]]*9, $opencl_types,
+ [nil] +
+ ["*p1 = (*p2==*p3) ? 1:0;"]*4 +
+ [nil] +
+ ["*p1 = (p2->r==p3->r) && (p2->i==p3->i) ? 1:0;"] +
+ [nil] +
+ [nil]
+)
+
+mkopenclfuncs('Cmp', [$opencl_types[1]]*9, $opencl_types,
+ [nil] +
+ ["if (*p2>*p3) *p1=1;
+    else if (*p2<*p3) *p1=2;
+    else *p1=0;"]*4 +
+ [nil]*4
+)
+
+mkopenclfuncs('And', [$opencl_types[1]]*9, $opencl_types,
+ [nil] +
+ ["*p1 = (*p2!=0 && *p3!=0) ? 1:0;"]*4 +
+ [nil] +
+ ["*p1 = ((p2->r!=0||p2->i!=0) && (p3->r!=0||p3->i!=0)) ? 1:0;"] +
+ [nil] +
+ [nil]
+)
+
+mkopenclfuncs('Or_', [$opencl_types[1]]*9, $opencl_types,
+ [nil] +
+ ["*p1 = (*p2!=0 || *p3!=0) ? 1:0;"]*4 +
+ [nil] +
+ ["*p1 = ((p2->r!=0||p2->i!=0) || (p3->r!=0||p3->i!=0)) ? 1:0;"] +
+ [nil] +
+ [nil]
+)
+
+mkopenclfuncs('Xor', [$opencl_types[1]]*9, $opencl_types,
+ [nil] +
+ ["*p1 = ((*p2!=0) == (*p3!=0)) ? 0:1;"]*4 +
+ [nil] +
+ ["*p1 = ((p2->r!=0||p2->i!=0) == (p3->r!=0||p3->i!=0)) ? 0:1;"] +
+ [nil] +
+ [nil]
+)
+
+
 ##
 ##   Atan2
 ##
@@ -684,9 +709,10 @@ mkopenclfuncs('MulSbt', $opencl_types, $opencl_types,
 # ["if (*(u_int8_t*)p3) { *p1=*p2; p2+=i2; }
 #    p3+=i3; p1+=i1;"]*8
 #)
-
+$>.close
 File.open("na_opencl.h","w"){|f|
   f.puts "#define KERNEL_SRC_FILE \"#{ARGV[0]}/na_kernel.cl\""
+  f.puts "#define MAX_SOURCE_SIZE (#{File.size('./na_kernel.cl')})"
+  f.puts "#define HDRDIR \"-I#{ARGV[0]} -I#{ARGV[1]}\""
   f.puts $kernels.join("\\\n") + "}"
-
 }
