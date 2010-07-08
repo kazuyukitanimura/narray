@@ -9,15 +9,20 @@ upcast_ary = $upcast.collect{|i| '  {'+i.join(", ")+'}'}.join(",\n")
 
 $opencl_types = 
  %w(none uchar short int float double scomplex dcomplex VALUE)
+$realopencl_types = 
+ %w(none uchar short int float double float double VALUE)
+$intopencl_types = 
+ %w(none uchar short int int int scomplex dcomplex VALUE)
 
 def mkopenclfuncs(name,t1,t2,func)
 
   print "
 /* ------------------------- #{name} --------------------------- */\n"
-  c  = $type_codes
-  td = $data_types
-  tr = $real_types
-  tcl= $opencl_types
+  c   = $type_codes
+  td  = $data_types
+  tr  = $real_types
+  tcl = $opencl_types
+  trcl= $realopencl_types
 
   for i in 0...c.size
     if func[i] != nil && func[i] != "copy"
@@ -32,7 +37,8 @@ def mkopenclfuncs(name,t1,t2,func)
 	gsub(/\*p3/,"(*(#{t2[i]}*)&p3[gid*i3+b3])").
 	gsub(/type1/,td[i]).
 	gsub(/typecl/,tcl[i]).
-	gsub(/typef/,tr[i])
+	gsub(/typef/,tr[i]).
+	gsub(/typercl/,trcl[i])
       puts $func_body.
 	gsub(/#name/,name).
 	sub(/GLOBAL_ID/,'int gid = get_global_id(0);').
@@ -51,6 +57,7 @@ def mkopenclfuncs(name,t1,t2,func)
   #    m += ['TpErr']
     elsif func[i]=='copy'
   #    m += ['Set'+c[$data_types.index(t1[i])]+c[i]]
+      $kernels << "  #{name}Funcs[#{narray_types[i]}] = SetFuncs[#{narray_types[i]}][#{narray_types[i]}];"
     else
   #    m += [name+c[i]]
       $kernels << "  #{name}Funcs[#{narray_types[i]}] = (void*)clCreateKernel(program, \"#{name+c[i]}\", &ret);"
@@ -258,7 +265,7 @@ mkopenclfuncs('DivU', $opencl_types, $opencl_types,
  [nil] +
  ["typecl x = *p1;
   typecl y = *p2;
-  typef a = y.r*y.r + y.i*y.i;
+  typercl a = y.r*y.r + y.i*y.i;
   p0->r = (x.r*y.r + x.i*y.i)/a;
   p0->i = (x.i*y.r - x.r*y.i)/a;
   barrier(CLK_LOCAL_MEM_FENCE);
@@ -269,71 +276,87 @@ mkopenclfuncs('DivU', $opencl_types, $opencl_types,
 )
 
 
-## method: imag=
-#mkfuncs('ImgSet',$data_types,$real_types,
-# [nil]*6 +
-# ["p1->i = *p2;"]*2 +
-# [nil]
-#)
-#
-#
-#mkfuncs('Floor',$int_types,$data_types,[nil] +
-# ['copy']*3 + 
-# ["*p1 = floor(*p2);"]*2 + 
-# [nil]*3
-#)
-#
-#mkfuncs('Ceil',$int_types,$data_types,[nil] +
-# ['copy']*3 + 
-# ["*p1 = ceil(*p2);"]*2 + 
-# [nil]*3
-#)
-#
-#mkfuncs('Round',$int_types,$data_types,[nil] +
-# ['copy']*3 + 
-## ["*p1 = floor(*p2+0.5);"]*2 + 
-# ["if (*p2 >= 0) *p1 = floor(*p2+0.5);
-#     else *p1 = ceil(*p2-0.5);"]*2 + 
-# [nil]*3
-#)
-#
-#mkfuncs('Abs',$real_types,$data_types,[nil] +
-# ["*p1 = *p2;"] + 
-# ["*p1 = (*p2<0) ? -*p2 : *p2;"]*4 + 
-# ["*p1 = hypot(p2->r, p2->i);"]*2 +
-# ["*p1 = rb_funcall(*p2,na_id_abs,0);"]
-#)
-#
-#
-#mkfuncs('Real',$real_types,$data_types,[nil] +
-# ['copy']*7 + 
-# [nil]
-#)
-#
-#mkfuncs('Imag',$real_types,$data_types,[nil] +
-# ["*p1 = 0;"]*5 + 
-# ["*p1 = p2->i;"]*2 +
-# [nil]
-#)
-#
-#mkfuncs('Angl',$real_types,$data_types,[nil] +
-# [nil]*5 +
-# ["*p1 = atan2(p2->i,p2->r);"]*2 +
-# [nil]
-#)
-#
-#mkfuncs('ImagMul',$comp_types,$data_types,[nil] +
-# [nil]*3 +
-# ["p1->r = 0; p1->i = *p2;"]*2 + 
-# ["p1->r = -p2->i; p1->i = p2->r;"]*2 +
-# [nil]
-#)
-#
-#mkfuncs('Conj',$data_types,$data_types,[nil] +
-# ['copy']*5 + 
-# ["p1->r = p2->r; p1->i = -p2->i;"]*2 +
-# [nil]
-#)
+# method: imag=
+mkopenclfuncs('ImgSet',$opencl_types,$realopencl_types,
+ [nil]*6 +
+ ["p1->i = *p2;"] +
+ [nil]*2
+)
+
+
+mkopenclfuncs('Floor',$intopencl_types,$opencl_types,
+ [nil] +
+ ['copy']*3 + 
+ ["*p1 = floor*p2;"] + 
+ [nil]*4
+)
+
+mkopenclfuncs('Ceil',$intopencl_types,$opencl_types,
+ [nil] +
+ ['copy']*3 + 
+ ["*p1 = ceil*p2;"] + 
+ [nil]*4
+)
+
+mkopenclfuncs('Round',$intopencl_types,$opencl_types,
+ [nil] +
+ ['copy']*3 + 
+ ["*p1 = round*p2;"] + 
+ [nil]*4
+)
+
+mkopenclfuncs('Abs',$realopencl_types,$opencl_types,
+ [nil] +
+ ["*p1 = abs(*p2);"]*3 + 
+ ["*p1 = fabs(*p2);"] + 
+ [nil] +
+ ["*p1 = hypot(p2->r, p2->i);"] +
+ [nil]*2
+)
+
+
+mkopenclfuncs('Real',$realopencl_types,$opencl_types,
+ [nil] +
+ ['copy']*4 + 
+ [nil] +
+ ['copy'] + 
+ [nil] +
+ [nil]
+)
+
+mkopenclfuncs('Imag',$realopencl_types,$opencl_types,
+ [nil] +
+ ["*p1 = 0;"]*4 + 
+ [nil] +
+ ["*p1 = p2->i;"] +
+ [nil]*2
+)
+
+mkopenclfuncs('Angl',$realopencl_types,$opencl_types,
+ [nil] +
+ [nil]*4 +
+ [nil] +
+ ["*p1 = atan2(p2->i,p2->r);"] +
+ [nil]*2
+)
+
+mkopenclfuncs('ImagMul',$comp_types,$opencl_types,
+ [nil] +
+ [nil]*3 +
+ ["p1->r = 0; p1->i = *p2;"] + 
+ [nil] +
+ ["p1->r = -p2->i; p1->i = p2->r;"] +
+ [nil] +
+ [nil]
+)
+
+mkopenclfuncs('Conj',$opencl_types,$opencl_types,
+ [nil] +
+ ['copy']*4 + 
+ [nil] +
+ ["p1->r = p2->r; p1->i = -p2->i;"] +
+ [nil]*2
+)
 
 mkopenclfuncs('Not', [$opencl_types[1]]*9, $opencl_types,
  [nil] +
@@ -606,7 +629,7 @@ mkopenclfuncs('DivB', $opencl_types, $opencl_types,
  # p1->i = (x.i*p3->r - x.r*p3->i)/a;"]*2 +
  ["typecl x = *p2;
   typecl y = *p3;
-  typef a = y.r*y.r + y.i*y.i;
+  typercl a = y.r*y.r + y.i*y.i;
   p1->r = (x.r*y.r + x.i*y.i)/a;
   p1->i = (x.i*y.r - x.r*y.i)/a;"] +
  [nil] +
