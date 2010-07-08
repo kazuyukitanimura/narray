@@ -45,7 +45,7 @@ void
     }
 ///////////////////////////////////////////////////
     /* set OpenCL kernel arguments */
-    ret = clSetKernelArg(kernel_func, 0, global_item_size*MAX(ps1,1)*sizeof(cl_char), NULL);
+    ret = clSetKernelArg(kernel_func, 0, global_item_size*MAX(ps1,ps2)*sizeof(cl_char), NULL);
     ret = clSetKernelArg(kernel_func, 1, sizeof(cl_mem), (void *)&buf1);
     int b1 = (int)(s1[0].p-p1); 
     ret = clSetKernelArg(kernel_func, 3, sizeof(cl_int), (void *)&b1);
@@ -110,7 +110,7 @@ void
     /* rank 0 loop */
 ///////////////////////////////////////////////////
     /* set OpenCL kernel arguments */
-    ret = clSetKernelArg(kernel_func, 0, global_item_size*MAX(ps1,1)*sizeof(cl_char), NULL);
+    ret = clSetKernelArg(kernel_func, 0, global_item_size*MAX(ps1,ps2)*sizeof(cl_char), NULL);
     ret = clSetKernelArg(kernel_func, 1, sizeof(cl_mem), (void *)&buf1);
     int b1 = (int)(s1[0].p-p1); 
     ret = clSetKernelArg(kernel_func, 3, sizeof(cl_int), (void *)&b1);
