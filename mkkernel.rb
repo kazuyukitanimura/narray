@@ -108,15 +108,7 @@ static int TpErrI(void) {
 static void na_zerodiv() {
     rb_raise(rb_eZeroDivError, "divided by 0");
 }
-
-static int notnanF(float *n)
-{
-  return *n == *n;
-}
-static int notnanD(double *n)
-{
-  return *n == *n;
-}*/
+*/
 EOM
 
 #
@@ -358,21 +350,21 @@ mkopenclfuncs('BRv', $opencl_types, $opencl_types,
  [nil]*5
 )
 
-#mkfuncs('Min', $data_types, $data_types, [nil] +
-# ["if (*p1>*p2) *p1=*p2;"]*3 +
-# ["if (notnan#C((type1*)p2) && *p1>*p2) *p1=*p2;"]*2 +
-# [nil]*2 +
-# ["if (FIX2INT(rb_funcall(*p1,na_id_compare,1,*p2))>0) *p1=*p2;"]
-#)
-#
-#mkfuncs('Max', $data_types, $data_types, [nil] +
-# ["if (*p1<*p2) *p1=*p2;"]*3 +
-# ["if (notnan#C((type1*)p2) && *p1<*p2) *p1=*p2;"]*2 +
-# [nil]*2 +
-# ["if (FIX2INT(rb_funcall(*p1,na_id_compare,1,*p2))<0) *p1=*p2;"]
-#)
-#
-#
+mkopenclfuncs('Min', $opencl_types, $opencl_types,
+ [nil] +
+ ["if (*p1>*p2) *p1=*p2;"]*3 +
+ ["if ((!isnan*p2) && (*p1>*p2)) *p1=*p2;"] +
+ [nil]*4
+)
+
+mkopenclfuncs('Max', $opencl_types, $opencl_types,
+ [nil] +
+ ["if (*p1<*p2) *p1=*p2;"]*3 +
+ ["if ((!isnan*p2) && (*p1<*p2)) *p1=*p2;"] +
+ [nil]*4
+)
+
+
 #mksortfuncs('Sort', $data_types, $data_types, [nil] +
 # ["
 #{ if (*p1 > *p2) return 1;
@@ -413,7 +405,41 @@ mkopenclfuncs('IndGen',$opencl_types,[$opencl_types[3]]*8,
  [nil]
 )
 
-
+## reduction for sum
+#$func_body = 
+#  "__kernel void #name#C(__local char* p0, __global char* p1, int i1, int b1, __global char* p2, int i2, int b2)
+#{
+#  int gid = get_global_id(0);
+#  OPERATION
+#}
+#"
+#mkopenclfuncs('RdcU', $opencl_types, $opencl_types,
+# [nil] +
+# ["i1 = i2;
+#  if (gid < get_global_size(0)/2)
+#    *p0 = *p2;
+#  int b2_org = b2;
+#  barrier(CLK_LOCAL_MEM_FENCE);
+#  for (b2 += i2*(get_global_size(0)/2); (b2-b2_org) < get_global_size(0); b2 += i2*((b2-b2_org)/2)) {
+#    if (gid < (b2-b2_org)) {
+#      *p0 += *p2;
+#    }
+#    barrier(CLK_LOCAL_MEM_FENCE);
+#  }
+#  i1 = 0;
+#  if (gid == 0)
+#    *p0 += *p1;
+#  barrier(CLK_LOCAL_MEM_FENCE);
+#  *p1 = *p0;"]*4 + 
+# [nil] +
+# ["p0->r = p1->r + p2->r;
+#  p0->i = p1->i + p2->i;
+#  barrier(CLK_LOCAL_MEM_FENCE);
+#  p1->r = p0->r;
+#  p1->i = p0->i;"] +
+# [nil] +
+# [nil]
+#)
 
 #$func_body = 
 #"static void #name#C(int n, char *p1, int i1, char *p2, int i2)
@@ -599,15 +625,18 @@ mkopenclfuncs('MulAdd', $opencl_types, $opencl_types,
  [nil] +
  ["*p0 = *p1 + *p2 * *p3;
   barrier(CLK_LOCAL_MEM_FENCE);
-  *p1 = *p0;"]*4 + 
+  *p1 = *p0;"]*3 + 
+ ["*p0 = fma(*p2, *p3, *p1);
+  barrier(CLK_LOCAL_MEM_FENCE);
+  *p1 = *p0;"] + 
  [nil] +
  #["typecl x = *p2;
  # p0->r = p1->r + x.r*p3->r - x.i*p3->i;
  # p0->i = p1->i + x.r*p3->i + x.i*p3->r;"]*2 +
  ["typecl x = *p2;
   typecl y = *p3;
-  p0->r = p1->r + x.r*y.r - x.i*y.i;
-  p0->i = p1->i + x.r*y.i + x.i*y.r;
+  p0->r = fma(-(x.i), y.i, fma(x.r, y.r, p1->r));
+  p0->i = fma(  x.i,  y.r, fma(x.r, y.i, p1->i));
   barrier(CLK_LOCAL_MEM_FENCE);
   p1->r = p0->r;
   p1->i = p0->i;"] +
@@ -619,15 +648,18 @@ mkopenclfuncs('MulSbt', $opencl_types, $opencl_types,
  [nil] +
  ["*p0 = *p1 - *p2 * *p3;
   barrier(CLK_LOCAL_MEM_FENCE);
-  *p1 = *p0;"]*4 + 
+  *p1 = *p0;"]*3 + 
+ ["*p0 = fma(-*p2, *p3, *p1);
+  barrier(CLK_LOCAL_MEM_FENCE);
+  *p1 = *p0;"] + 
  [nil] +
  #["typecl x = *p2;
  # p0->r = p1->r - x.r*p3->r - x.i*p3->i;
  # p0->i = p1->i - x.r*p3->i + x.i*p3->r;"]*2 +
  ["typecl x = *p2;
   typecl y = *p3;
-  p0->r = p1->r - x.r*y.r - x.i*y.i;
-  p0->i = p1->i - x.r*y.i + x.i*y.r;
+  p0->r = fma(-(x.i), y.i, fma(-(x.r), y.r, p1->r));
+  p0->i = fma(  x.i,  y.r, fma(-(x.r), y.i, p1->i));
   barrier(CLK_LOCAL_MEM_FENCE);
   p1->r = p0->r;
   p1->i = p0->i;"] +
@@ -708,20 +740,20 @@ mkopenclfuncs('Xor', [$opencl_types[1]]*9, $opencl_types,
 )
 
 
-##
-##   Atan2
-##
 #
-#mkfuncs('atan2', $data_types, $data_types,
-# [nil]*4 +
-# ["*p1 = atan2(*p2, *p3);"]*2 +
-# [nil]*3
-#)
+#   Atan2
 #
+
+mkopenclfuncs('atan2', $opencl_types, $opencl_types,
+ [nil]*4 +
+ ["*p1 = atan2(*p2, *p3);"] +
+ [nil]*4
+)
+
+
 #
-##
-##   Mask
-##
+#   Mask
+#
 #$func_body = 
 #  "static void #name#C(int n, char *p1, int i1, char *p2, int i2, char *p3, int i3)
 #{
@@ -730,15 +762,15 @@ mkopenclfuncs('Xor', [$opencl_types[1]]*9, $opencl_types,
 #  }
 #}
 #"
-#mkfuncs('RefMask',$data_types,$data_types,
+#mkopenclfuncs('RefMask',$opencl_types,$opencl_types,
 # [nil] +
-# ["if (*(u_int8_t*)p3) { *p1=*p2; p1+=i1; }
+# ["if (*(uchar*)p3) { *p1=*p2; p1+=i1; }
 #    p3+=i3; p2+=i2;"]*8
 #)
 #
-#mkfuncs('SetMask',$data_types,$data_types,
+#mkfopencluncs('SetMask',$opencl_types,$opencl_types,
 # [nil] +
-# ["if (*(u_int8_t*)p3) { *p1=*p2; p2+=i2; }
+# ["if (*(uchar*)p3) { *p1=*p2; p2+=i2; }
 #    p3+=i3; p1+=i1;"]*8
 #)
 $>.close

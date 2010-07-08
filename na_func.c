@@ -483,7 +483,7 @@ static void
   na_init_slice( s2, ndim, shp2, na_sizeof[a2->type] );
 
 #ifdef __OPENCL__
-  if ((a1->type > NA_NONE) && (a1->type < NA_DCOMPLEX) && (a1->type != NA_DFLOAT)) {
+  if ((a1->type > NA_NONE) && (a1->type < NA_DCOMPLEX) && (a1->type != NA_DFLOAT) && (func != AddUFuncs[NA_NONE])) {
     na_opencl_do_loop_unary(a1->queue, ndim, a1->ptr, a2->ptr, s1, s2, a1->buffer, a2->buffer, func );
   }else {
 #endif
@@ -529,7 +529,7 @@ static void
   na_init_slice(s3, ndim, shp3, na_sizeof[a3->type] );
 
 #ifdef __OPENCL__
-  if ((a2->type > NA_NONE) && (a2->type < NA_DCOMPLEX) && (a2->type != NA_DFLOAT) && (func != ModBFuncs[NA_SCOMPLEX])) {
+  if ((a2->type > NA_NONE) && (a2->type < NA_DCOMPLEX) && (a2->type != NA_DFLOAT) && (func != AddUFuncs[NA_NONE])) {
     na_opencl_do_loop_binary(a1->queue, ndim, a1->ptr, a2->ptr, a3->ptr, s1, s2, s3, a1->buffer, a2->buffer, a3->buffer, func );
   }else {
 #endif
