@@ -90,8 +90,7 @@ void na_init_slice( struct slice *s, int rank, int *shape, int elmsz )
 
 
 static void
- na_do_loop_unary( int nd, char *p1, char *p2,
-		   struct slice *s1, struct slice *s2, void (*func)() )
+ na_do_loop_unary( int nd, char *p1, char *p2, struct slice *s1, struct slice *s2, void (*func)() )
 {
   int *si;
   int  i;
@@ -124,9 +123,7 @@ static void
 
 
 static void
- na_do_loop_binary( int nd, char *p1, char *p2, char *p3,
-		    struct slice *s1, struct slice *s2, struct slice *s3,
-		    void (*func)() )
+ na_do_loop_binary( int nd, char *p1, char *p2, char *p3, struct slice *s1, struct slice *s2, struct slice *s3, void (*func)() )
 {
   int i;
   int ps1 = s1[0].pstep;
@@ -164,8 +161,7 @@ static void
 
 
 
-void na_loop_index_ref( struct NARRAY *a1, struct NARRAY *a2,
-			struct slice *s1, struct slice *s2, void (*func)() )
+void na_loop_index_ref( struct NARRAY *a1, struct NARRAY *a2, struct slice *s1, struct slice *s2, void (*func)() )
 {
   char *p1, *p2;
   int nr, i, ii;
@@ -230,8 +226,7 @@ void na_loop_index_ref( struct NARRAY *a1, struct NARRAY *a2,
 }
 
 
-void na_loop_general( struct NARRAY *a1, struct NARRAY *a2,
-		      struct slice *s1, struct slice *s2, void (*func)() )
+void na_loop_general( struct NARRAY *a1, struct NARRAY *a2, struct slice *s1, struct slice *s2, void (*func)() )
 {
   char *p1, *p2;
   int nr, i, ii;
@@ -458,7 +453,11 @@ int
 
 
 static void
+#ifdef __OPENCL__
+ na_exec_unary(struct NARRAY *a1, struct NARRAY *a2, void (*func)(), void* kernel )
+#else
  na_exec_unary(struct NARRAY *a1, struct NARRAY *a2, void (*func)())
+#endif
 {
   int  ndim;
   int *shp1, *shp2;
@@ -483,8 +482,8 @@ static void
   na_init_slice( s2, ndim, shp2, na_sizeof[a2->type] );
 
 #ifdef __OPENCL__
-  if ((a1->type > NA_NONE) && (a1->type < NA_DCOMPLEX) && (a1->type != NA_DFLOAT) && (func != AddUFuncs[NA_NONE])) {
-    na_opencl_do_loop_unary(a1->queue, ndim, a1->ptr, a2->ptr, s1, s2, a1->buffer, a2->buffer, func );
+  if (OPENCL_KERNEL(kernel)) {
+    na_opencl_do_loop_unary(a1->queue, ndim, a1->ptr, a2->ptr, s1, s2, a1->buffer, a2->buffer, kernel );
   }else {
 #endif
   na_do_loop_unary( ndim, a1->ptr, a2->ptr, s1, s2, func );
@@ -498,8 +497,11 @@ static void
 
 /* a1 and/or a2 and/or a3 have extensible index */
 static void
- na_exec_binary( struct NARRAY *a1, struct NARRAY *a2,
-		 struct NARRAY *a3, void (*func)() )
+#ifdef __OPENCL__
+ na_exec_binary( struct NARRAY *a1, struct NARRAY *a2, struct NARRAY *a3, void (*func)(), void* kernel )
+#else
+ na_exec_binary( struct NARRAY *a1, struct NARRAY *a2, struct NARRAY *a3, void (*func)() )
+#endif
 {
   int   ndim;
   int  *itr, *shp1, *shp2, *shp3;
@@ -529,8 +531,8 @@ static void
   na_init_slice(s3, ndim, shp3, na_sizeof[a3->type] );
 
 #ifdef __OPENCL__
-  if ((a2->type > NA_NONE) && (a2->type < NA_DCOMPLEX) && (a2->type != NA_DFLOAT) && (func != AddUFuncs[NA_NONE])) {
-    na_opencl_do_loop_binary(a1->queue, ndim, a1->ptr, a2->ptr, a3->ptr, s1, s2, s3, a1->buffer, a2->buffer, a3->buffer, func );
+  if (OPENCL_KERNEL(kernel)) {
+    na_opencl_do_loop_binary(a1->queue, ndim, a1->ptr, a2->ptr, a3->ptr, s1, s2, s3, a1->buffer, a2->buffer, a3->buffer, kernel );
   }else {
 #endif
   na_do_loop_binary( ndim, a1->ptr, a2->ptr, a3->ptr, s1, s2, s3, func );
@@ -612,7 +614,11 @@ static VALUE
 
 
 static VALUE
+#ifdef __OPENCL__
+ na_bifunc(VALUE obj1, VALUE obj2, VALUE klass, na_bifunc_t funcs, na_bifunc_t kernels)
+#else
  na_bifunc(VALUE obj1, VALUE obj2, VALUE klass, na_bifunc_t funcs)
+#endif
 {
   VALUE obj3;
   ID id;
@@ -635,8 +641,11 @@ static VALUE
 
   obj3 = na_make_object_extend(NA_STRUCT(obj1),NA_STRUCT(obj2),type,klass);
 
-  na_exec_binary( NA_STRUCT(obj3), NA_STRUCT(obj1), NA_STRUCT(obj2),
-		  funcs[type] );
+#ifdef __OPENCL__
+  na_exec_binary( NA_STRUCT(obj3), NA_STRUCT(obj1), NA_STRUCT(obj2), funcs[type], kernels[type] );
+#else
+  na_exec_binary( NA_STRUCT(obj3), NA_STRUCT(obj1), NA_STRUCT(obj2), funcs[type] );
+#endif
 
   return obj3;
 }
@@ -670,22 +679,33 @@ static VALUE
   obj3 = na_make_object_extend( a1, a2, na_upcast[a1->type][a2->type],
 				CLASS_OF(obj1) );
 
-  na_exec_binary( NA_STRUCT(obj3), a1, a2,
-		  PowFuncs[a1->type][a2->type] );
+#ifdef __OPENCL__
+  na_exec_binary( NA_STRUCT(obj3), a1, a2, PowFuncs[a1->type][a2->type], NULL );
+#else
+  na_exec_binary( NA_STRUCT(obj3), a1, a2, PowFuncs[a1->type][a2->type] );
+#endif
 
   return obj3;
 }
 
 
 static VALUE
+#ifdef __OPENCL__
+ na_set_func(VALUE obj1, volatile VALUE obj2, na_ufunc_t funcs, na_ufunc_t kernels)
+#else
  na_set_func(VALUE obj1, volatile VALUE obj2, na_ufunc_t funcs)
+#endif
 {
   struct NARRAY *a1;
 
   GetNArray(obj1,a1);
   obj2 = na_cast_object(obj2,a1->type);
 
+#ifdef __OPENCL__
+  na_exec_unary( NA_STRUCT(obj1), NA_STRUCT(obj2), funcs[a1->type], kernels[a1->type] );
+#else
   na_exec_unary( NA_STRUCT(obj1), NA_STRUCT(obj2), funcs[a1->type] );
+#endif
 
   return obj1;
 }
@@ -699,14 +719,22 @@ static VALUE
   GetNArray(obj1,a1);
   obj2 = na_cast_object(obj2, na_cast_real[a1->type]);
 
+#ifdef __OPENCL__
+  na_exec_unary( NA_STRUCT(obj1), NA_STRUCT(obj2), ImgSetFuncs[a1->type], ImgSetKernels[a1->type] );
+#else
   na_exec_unary( NA_STRUCT(obj1), NA_STRUCT(obj2), ImgSetFuncs[a1->type] );
+#endif
 
   return obj1;
 }
 
 
 static VALUE
+#ifdef __OPENCL__
+ na_unary_func(VALUE self, const int *cast, na_ufunc_t funcs, na_ufunc_t kernels)
+#else
  na_unary_func(VALUE self, const int *cast, na_ufunc_t funcs)
+#endif
 {
   VALUE ans;
   struct NARRAY *a2;
@@ -714,7 +742,11 @@ static VALUE
   GetNArray(self,a2);
   ans = na_make_object(cast[a2->type], a2->rank, a2->shape, CLASS_OF(self));
 
+#ifdef __OPENCL__
+  na_exec_unary( NA_STRUCT(ans), a2, funcs[a2->type], kernels[a2->type] );
+#else
   na_exec_unary( NA_STRUCT(ans), a2, funcs[a2->type] );
+#endif
   return ans;
 }
 
@@ -722,7 +754,11 @@ static VALUE
 
 /* local function for comparison */
 static VALUE
+#ifdef __OPENCL__
+ na_compare_func(VALUE self, VALUE other, na_bifunc_t funcs, na_bifunc_t kernels)
+#else
  na_compare_func(VALUE self, VALUE other, na_bifunc_t funcs)
+#endif
 {
   VALUE ans;
   int type;
@@ -732,46 +768,80 @@ static VALUE
   other = na_upcast_object(other,NA_STRUCT(self)->type);
   self = na_upcast_type(self,type=NA_STRUCT(other)->type);
 
-  ans = na_make_object_extend( NA_STRUCT(self), NA_STRUCT(other),
-			       NA_BYTE, cNArray );
+  ans = na_make_object_extend( NA_STRUCT(self), NA_STRUCT(other), NA_BYTE, cNArray );
 
-  na_exec_binary( NA_STRUCT(ans), NA_STRUCT(self), NA_STRUCT(other),
-		  funcs[type] );
+#ifdef __OPENCL__
+  na_exec_binary( NA_STRUCT(ans), NA_STRUCT(self), NA_STRUCT(other), funcs[type], kernels[type] );
+#else
+  na_exec_binary( NA_STRUCT(ans), NA_STRUCT(self), NA_STRUCT(other), funcs[type] );
+#endif
   return ans;
 }
 
 
 /* method: self + other */
 static VALUE na_add(VALUE obj1, VALUE obj2)
+#ifdef __OPENCL__
+{ return na_bifunc( obj1, obj2, Qnil, AddBFuncs, AddBKernels ); }
+#else
 { return na_bifunc( obj1, obj2, Qnil, AddBFuncs ); }
+#endif
 
 /* method: self - other */
 static VALUE na_sbt(VALUE obj1, VALUE obj2)
+#ifdef __OPENCL__
+{ return na_bifunc( obj1, obj2, Qnil, SbtBFuncs, SbtBKernels ); }
+#else
 { return na_bifunc( obj1, obj2, Qnil, SbtBFuncs ); }
+#endif
 
 /* method: self * other */
 static VALUE na_mul(VALUE obj1, VALUE obj2)
+#ifdef __OPENCL__
+{ return na_bifunc( obj1, obj2, Qnil, MulBFuncs, MulBKernels ); }
+#else
 { return na_bifunc( obj1, obj2, Qnil, MulBFuncs ); }
+#endif
 
 /* method: self / other */
 static VALUE na_div(VALUE obj1, VALUE obj2)
+#ifdef __OPENCL__
+{ return na_bifunc( obj1, obj2, Qnil, DivBFuncs, DivBKernels ); }
+#else
 { return na_bifunc( obj1, obj2, Qnil, DivBFuncs ); }
+#endif
 
 /* method: self / other */
 static VALUE na_mod(VALUE obj1, VALUE obj2)
+#ifdef __OPENCL__
+{ return na_bifunc( obj1, obj2, Qnil, ModBFuncs, ModBKernels ); }
+#else
 { return na_bifunc( obj1, obj2, Qnil, ModBFuncs ); }
+#endif
 
 /* method: self & other */
 static VALUE na_bit_and(VALUE obj1, VALUE obj2)
+#ifdef __OPENCL__
+{ return na_bifunc( obj1, obj2, Qnil, BAnFuncs, BAnKernels ); }
+#else
 { return na_bifunc( obj1, obj2, Qnil, BAnFuncs ); }
+#endif
 
 /* method: self | other */
 static VALUE na_bit_or(VALUE obj1, VALUE obj2)
+#ifdef __OPENCL__
+{ return na_bifunc( obj1, obj2, Qnil, BOrFuncs, BOrKernels ); }
+#else
 { return na_bifunc( obj1, obj2, Qnil, BOrFuncs ); }
+#endif
 
 /* method: self ^ other */
 static VALUE na_bit_xor(VALUE obj1, VALUE obj2)
+#ifdef __OPENCL__
+{ return na_bifunc( obj1, obj2, Qnil, BXoFuncs, BXoKernels ); }
+#else
 { return na_bifunc( obj1, obj2, Qnil, BXoFuncs ); }
+#endif
 
 /* method: atan2(y,x) */
 static VALUE na_math_atan2(VALUE module, volatile VALUE y, volatile VALUE x)
@@ -800,7 +870,11 @@ static VALUE na_math_atan2(VALUE module, volatile VALUE y, volatile VALUE x)
     x = na_upcast_type(x,NA_DFLOAT);
   }
 
+#ifdef __OPENCL__
+  ans = na_bifunc( y, x, Qnil, atan2Funcs, atan2Kernels );
+#else
   ans = na_bifunc( y, x, Qnil, atan2Funcs );
+#endif
   GetNArray(ans,aa);
 
   if (CLASS_OF(y) == cNArrayScalar && CLASS_OF(x) == cNArrayScalar)
@@ -814,122 +888,230 @@ static VALUE na_math_atan2(VALUE module, volatile VALUE y, volatile VALUE x)
 /* singleton method: NArray.mul( obj1, obj2 ) */
 static VALUE
  na_s_mul(VALUE klass, VALUE obj1, VALUE obj2)
+#ifdef __OPENCL__
+{ return na_bifunc( obj1, obj2, klass, MulBFuncs, MulBKernels ); }
+#else
 { return na_bifunc( obj1, obj2, klass, MulBFuncs ); }
+#endif
 
 /* singleton method: NArray.div( obj1, obj2 ) */
 static VALUE
  na_s_div(VALUE klass, VALUE obj1, VALUE obj2)
+#ifdef __OPENCL__
+{ return na_bifunc( obj1, obj2, klass, DivBFuncs, DivBKernels ); }
+#else
 { return na_bifunc( obj1, obj2, klass, DivBFuncs ); }
+#endif
 
 
 
 /* method: self.add!(other) */
 static VALUE na_add_bang(VALUE obj1, VALUE obj2)
+#ifdef __OPENCL__
+{ return na_set_func( obj1, obj2, AddUFuncs, AddUKernels ); }
+#else
 { return na_set_func( obj1, obj2, AddUFuncs ); }
+#endif
 
 /* method: self.sbt!(other) */
 static VALUE na_sbt_bang(VALUE obj1, VALUE obj2)
+#ifdef __OPENCL__
+{ return na_set_func( obj1, obj2, SbtUFuncs, SbtUKernels ); }
+#else
 { return na_set_func( obj1, obj2, SbtUFuncs ); }
+#endif
 
 /* method: self.div!(other) */
 static VALUE na_div_bang(VALUE obj1, VALUE obj2)
+#ifdef __OPENCL__
+{ return na_set_func( obj1, obj2, DivUFuncs, DivUKernels ); }
+#else
 { return na_set_func( obj1, obj2, DivUFuncs ); }
+#endif
 
 /* method: self.mul!(other) */
 static VALUE na_mul_bang(VALUE obj1, VALUE obj2)
+#ifdef __OPENCL__
+{ return na_set_func( obj1, obj2, MulUFuncs, MulUKernels ); }
+#else
 { return na_set_func( obj1, obj2, MulUFuncs ); }
+#endif
 
 /* method: self.conj! */
 static VALUE na_conj_bang(VALUE self)
+#ifdef __OPENCL__
+{ return na_set_func( self, self, ConjFuncs, ConjKernels ); }
+#else
 { return na_set_func( self, self, ConjFuncs ); }
+#endif
 
 
 /* method: self.swap_byte */
 static VALUE na_swap_byte(VALUE self)
+#ifdef __OPENCL__
+{ return na_unary_func( self, na_no_cast, SwpFuncs, NULL ); }
+#else
 { return na_unary_func( self, na_no_cast, SwpFuncs ); }
+#endif
 
 /* method: self.hton , self.ntoh */
 static VALUE na_hton(VALUE self)
+#ifdef __OPENCL__
+{ return na_unary_func( self, na_no_cast, H2NFuncs, NULL ); }
+#else
 { return na_unary_func( self, na_no_cast, H2NFuncs ); }
+#endif
 
 /* method: self.htov , self.vtoh */
 static VALUE na_htov(VALUE self)
+#ifdef __OPENCL__
+{ return na_unary_func( self, na_no_cast, H2VFuncs, NULL ); }
+#else
 { return na_unary_func( self, na_no_cast, H2VFuncs ); }
+#endif
 
 /* method: ~self */
 static VALUE na_bit_rev(VALUE self)
+#ifdef __OPENCL__
+{ return na_unary_func( self, na_no_cast, BRvFuncs, BRvKernels ); }
+#else
 { return na_unary_func( self, na_no_cast, BRvFuncs ); }
+#endif
 
 /* method: -self */
 static VALUE na_neg(VALUE self)
+#ifdef __OPENCL__
+{ return na_unary_func( self, na_no_cast, NegFuncs, NegKernels ); }
+#else
 { return na_unary_func( self, na_no_cast, NegFuncs ); }
+#endif
 
 /* method: self.recip */
 static VALUE na_recip(VALUE self)
+#ifdef __OPENCL__
+{ return na_unary_func( self, na_no_cast, RcpFuncs, NULL ); }
+#else
 { return na_unary_func( self, na_no_cast, RcpFuncs ); }
+#endif
 
 /* method: self.abs */
 static VALUE na_abs(VALUE self)
+#ifdef __OPENCL__
+{ return na_unary_func( self, na_cast_real, AbsFuncs, AbsKernels ); }
+#else
 { return na_unary_func( self, na_cast_real, AbsFuncs ); }
+#endif
 
 /* method: self.real */
 static VALUE na_real(VALUE self)
+#ifdef __OPENCL__
+{ return na_unary_func( self, na_cast_real, RealFuncs, RealKernels ); }
+#else
 { return na_unary_func( self, na_cast_real, RealFuncs ); }
+#endif
 
 /* method: self.imag */
 static VALUE na_imag(VALUE self)
+#ifdef __OPENCL__
+{ return na_unary_func( self, na_cast_real, ImagFuncs, ImagKernels ); }
+#else
 { return na_unary_func( self, na_cast_real, ImagFuncs ); }
+#endif
 
 /* method: self.imag */
 static VALUE na_angle(VALUE self)
+#ifdef __OPENCL__
+{ return na_unary_func( self, na_cast_real, AnglFuncs, AnglKernels ); }
+#else
 { return na_unary_func( self, na_cast_real, AnglFuncs ); }
+#endif
 
 /* method: self.im */
 static VALUE na_imag_mul(VALUE self)
+#ifdef __OPENCL__
+{ return na_unary_func( self, na_cast_comp, ImagMulFuncs, ImagMulKernels ); }
+#else
 { return na_unary_func( self, na_cast_comp, ImagMulFuncs ); }
+#endif
 
 /* method: self.conj */
 static VALUE na_conj(VALUE self)
+#ifdef __OPENCL__
+{ return na_unary_func( self, na_no_cast, ConjFuncs, ConjKernels ); }
+#else
 { return na_unary_func( self, na_no_cast, ConjFuncs ); }
+#endif
 
 /* method: self.floor */
 static VALUE na_floor(VALUE self)
+#ifdef __OPENCL__
+{ return na_unary_func( self, na_cast_round, FloorFuncs, FloorKernels ); }
+#else
 { return na_unary_func( self, na_cast_round, FloorFuncs ); }
+#endif
 
 /* method: self.ceil */
 static VALUE na_ceil(VALUE self)
+#ifdef __OPENCL__
+{ return na_unary_func( self, na_cast_round, CeilFuncs, CeilKernels ); }
+#else
 { return na_unary_func( self, na_cast_round, CeilFuncs ); }
+#endif
 
 /* method: self.round */
 static VALUE na_round(VALUE self)
+#ifdef __OPENCL__
+{ return na_unary_func( self, na_cast_round, RoundFuncs, RoundKernels ); }
+#else
 { return na_unary_func( self, na_cast_round, RoundFuncs ); }
+#endif
 
 /* method: self.not */
 static VALUE na_not(VALUE self)
+#ifdef __OPENCL__
+{ return na_unary_func( self, na_cast_byte, NotFuncs, NotKernels ); }
+#else
 { return na_unary_func( self, na_cast_byte, NotFuncs ); }
+#endif
 
 
 /* method: self.and other */
 static VALUE
  na_cond_and(VALUE obj1, VALUE obj2)
+#ifdef __OPENCL__
+{ return na_compare_func( obj1, obj2, AndFuncs, AndKernels ); }
+#else
 { return na_compare_func( obj1, obj2, AndFuncs ); }
+#endif
 
 /* method: self.or other */
 static VALUE
  na_cond_or(VALUE obj1, VALUE obj2)
+#ifdef __OPENCL__
+{ return na_compare_func( obj1, obj2, Or_Funcs, Or_Kernels ); }
+#else
 { return na_compare_func( obj1, obj2, Or_Funcs ); }
+#endif
 
 /* method: self.xor other */
 static VALUE
  na_cond_xor(VALUE obj1, VALUE obj2)
+#ifdef __OPENCL__
+{ return na_compare_func( obj1, obj2, XorFuncs, XorKernels ); }
+#else
 { return na_compare_func( obj1, obj2, XorFuncs ); }
+#endif
 
 
 
 /* method: self <=> other */
 static VALUE
  na_compare(VALUE obj1, VALUE obj2)
+#ifdef __OPENCL__
+{ return na_compare_func( obj1, obj2, CmpFuncs, CmpKernels ); }
+#else
 { return na_compare_func( obj1, obj2, CmpFuncs ); }
+#endif
 
 
 
@@ -937,7 +1119,11 @@ static VALUE
 static VALUE
  na_equal(VALUE obj1, VALUE obj2)
 {
+#ifdef __OPENCL__
+  return na_compare_func( obj1, obj2, EqlFuncs, EqlKernels );
+#else
   return na_compare_func( obj1, obj2, EqlFuncs );
+#endif
 }
 
 /* method: self.ne(other) */
@@ -948,7 +1134,11 @@ static VALUE
   int  i;  char *p;
   struct NARRAY *a;
 
+#ifdef __OPENCL__
+  obj = na_compare_func( obj1, obj2, EqlFuncs, EqlKernels );
+#else
   obj = na_compare_func( obj1, obj2, EqlFuncs );
+#endif
   GetNArray(obj,a);
   p = a->ptr;
   for( i=a->total; i-->0; ) {
@@ -965,7 +1155,11 @@ static VALUE
   int  i;  char *p;
   struct NARRAY *a;
 
+#ifdef __OPENCL__
+  self = na_compare_func( self, obj2, CmpFuncs, CmpKernels );
+#else
   self = na_compare_func( self, obj2, CmpFuncs );
+#endif
   GetNArray(self,a);
   p = a->ptr;
   for( i=a->total; i-->0; ) {
@@ -983,7 +1177,11 @@ static VALUE
   int  i;  char *p;
   struct NARRAY *a;
 
+#ifdef __OPENCL__
+  obj = na_compare_func( obj1, obj2, CmpFuncs, CmpKernels );
+#else
   obj = na_compare_func( obj1, obj2, CmpFuncs );
+#endif
   GetNArray(obj,a);
   p = a->ptr;
   for( i=a->total; i-->0; ) {
@@ -1002,7 +1200,11 @@ static VALUE
   int  i;  char *p;
   struct NARRAY *a;
 
+#ifdef __OPENCL__
+  obj = na_compare_func( obj1, obj2, CmpFuncs, CmpKernels );
+#else
   obj = na_compare_func( obj1, obj2, CmpFuncs );
+#endif
   GetNArray(obj,a);
   p = a->ptr;
   for( i=a->total; i-->0; ) {
@@ -1021,7 +1223,11 @@ static VALUE
   int  i;  char *p;
   struct NARRAY *a;
 
+#ifdef __OPENCL__
+  obj = na_compare_func( obj1, obj2, CmpFuncs, CmpKernels );
+#else
   obj = na_compare_func( obj1, obj2, CmpFuncs );
+#endif
   GetNArray(obj,a);
   p = a->ptr;
   for( i=a->total; i-->0; ) {
@@ -1121,8 +1327,16 @@ static struct NARRAY *
   na_init_slice( s1, ndim, a1->shape, na_sizeof[a1->type] );
 
   /* Loop */
+#ifdef __OPENCL__
+  if (OPENCL_KERNEL(SetKernels[a1->type][a2->type])) {
+    na_opencl_do_loop_unary(a1->queue, ndim, a1->ptr, a2->ptr, s1, s2, a1->buffer, a2->buffer, SetKernels[a1->type][a2->type] );
+  }else {
+#endif
   na_do_loop_unary( ndim, a1->ptr, a2->ptr, s1, s2,
 		    SetFuncs[a1->type][a2->type] );
+#ifdef __OPENCL__
+  }
+#endif
   xfree(s1);
   return a1;
 }
@@ -1236,7 +1450,11 @@ static VALUE
   GetNArray(obj,a2);
 
   na_zero_data(a2);
+#ifdef __OPENCL__
+  na_exec_unary( a2, a1, AddUFuncs[a1->type], NULL );
+#else
   na_exec_unary( a2, a1, AddUFuncs[a1->type] );
+#endif
 
   if (flag==0)
     obj = na_shrink_rank(obj,cl_dim,rankv);
@@ -1296,7 +1514,11 @@ static VALUE
 			(wrap_klass==Qnil) ? op_klass : wrap_klass);
 
   na_zero_data( NA_STRUCT(ans) );
+#ifdef __OPENCL__
+  na_exec_binary( NA_STRUCT(ans), a1, a2, MulAddFuncs[type], MulAddKernels[type] );
+#else
   na_exec_binary( NA_STRUCT(ans), a1, a2, MulAddFuncs[type] );
+#endif
 
   if (flag==0)
     ans = na_shrink_rank(ans,cl_dim,rankv);
@@ -1389,14 +1611,25 @@ static void
   na_init_slice(s1, ndim, a1->shape, na_sizeof[a1->type] );
   na_init_slice(s2, ndim, a2->shape, na_sizeof[a2->type] );
   /* Loop */
-  na_do_loop_unary( ndim, a1->ptr, a2->ptr, s1, s2,
-		    SetFuncs[a1->type][a2->type] );
+#ifdef __OPENCL__
+  if (OPENCL_KERNEL(SetKernels[a1->type][a2->type])) {
+    na_opencl_do_loop_unary(a1->queue, ndim, a1->ptr, a2->ptr, s1, s2, a1->buffer, a2->buffer, SetKernels[a1->type][a2->type] );
+  }else {
+#endif
+  na_do_loop_unary( ndim, a1->ptr, a2->ptr, s1, s2, SetFuncs[a1->type][a2->type] );
+#ifdef __OPENCL__
+  }
+#endif
   xfree(s1);
 }
 
 
 static VALUE
+#ifdef __OPENCL__
+ na_minmax_func(int argc, VALUE *argv, VALUE self, na_ufunc_t funcs, na_ufunc_t kernels)
+#else
  na_minmax_func(int argc, VALUE *argv, VALUE self, na_ufunc_t funcs)
+#endif
 {
   VALUE obj, klass;
   int *shape, rankc, *rankv, cl_dim;
@@ -1418,7 +1651,11 @@ static VALUE
   GetNArray(obj,a2);
 
   na_minmax_copy0( a2, a1 );
+#ifdef __OPENCL__
+  na_exec_unary( a2, a1, funcs[a1->type], kernels[a1->type] );
+#else
   na_exec_unary( a2, a1, funcs[a1->type] );
+#endif
 
   obj = na_shrink_rank(obj, cl_dim, rankv);
 
@@ -1430,12 +1667,20 @@ static VALUE
 /* method: min( rank, ... ) */
 static VALUE
  na_min(int argc, VALUE *argv, VALUE self)
+#ifdef __OPENCL__
+{ return na_minmax_func(argc,argv,self,MinFuncs,MinKernels); }
+#else
 { return na_minmax_func(argc,argv,self,MinFuncs); }
+#endif
 
 /* method: max( rank, ... ) */
 static VALUE
  na_max(int argc, VALUE *argv, VALUE self)
+#ifdef __OPENCL__
+{ return na_minmax_func(argc,argv,self,MaxFuncs,MaxKernels); }
+#else
 { return na_minmax_func(argc,argv,self,MaxFuncs); }
+#endif
 
 
 

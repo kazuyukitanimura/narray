@@ -14,6 +14,73 @@ $realopencl_types =
 $intopencl_types = 
  %w(none uchar short int int int scomplex dcomplex VALUE)
 
+def mkopenclsetfuncs(name,op,id,funcs)
+
+  print "
+/* ------------------------- #{name} --------------------------- */\n"
+  c  = $type_codes
+  n  = $type_codes.size
+  td = $data_types
+  tr = $real_types
+  tcl = $opencl_types
+  trcl= $realopencl_types
+
+  # Function Definition
+
+  for i in 0...n
+    for j in 0...n
+      funcs.each do |k|
+	if c[i]=~k[0] && c[j]=~k[1]
+          f = k[2]
+	  f = f.
+            gsub(/p0->/,"((#{tcl[i]}*)&p0[gid*i1])->").
+            gsub(/p1->/,"((#{tcl[i]}*)&p1[gid*i1+b1])->").
+            gsub(/p2->/,"((#{tcl[j]}*)&p2[gid*i2+b2])->").
+            gsub(/\*p0/,"(*(#{tcl[i]}*)&p0[gid*i1])").
+            gsub(/\*p1/,"(*(#{tcl[i]}*)&p1[gid*i1+b1])").
+            gsub(/\*p2/,"(*(#{tcl[j]}*)&p2[gid*i2+b2])").
+            gsub(/#id/,id).
+            gsub(/#op/,op).
+	    gsub(/typed/,td[i]).
+            gsub(/typecl/,tcl[i]).
+            gsub(/typef/,tr[i]).
+            gsub(/typercl/,trcl[i])
+	  puts $func_body.
+	    gsub(/#name/,name).
+            sub(/GLOBAL_ID/,'int gid = get_global_id(0);').
+	    sub(/OPERATION/,f).
+	    gsub(/#CC/,c[i]+c[j])
+	end
+      end
+    end
+  end
+
+  # function pointer array
+  narray_types = ["NA_NONE", "NA_BYTE", "NA_SINT", "NA_LINT", "NA_SFLOAT", "NA_DFLOAT", "NA_SCOMPLEX", "NA_DCOMPLEX", "NA_ROBJ", "NA_NTYPES"]
+  #print "\nna_setfunc_t "+name+"Funcs = {\n"
+  #m = []
+  for i in 0...n
+    #l = []
+    for j in 0...n
+      f = true
+      for k in funcs
+	if c[i]=~k[0] && c[j]=~k[1]
+	  #l += [name+c[i]+c[j]]
+          $kernels << "  #{name}Kernels[#{narray_types[i]}][#{narray_types[j]}] = (void*)clCreateKernel(program, \"#{name+c[i]+c[j]}\", &ret);"
+	  f = false
+	  break
+	end
+      end
+      if f
+        #l += ['TpErr']
+        $kernels << "  #{name}Kernels[#{narray_types[i]}][#{narray_types[j]}] = NULL;"
+      end
+    end
+    #m += ['  { '+l.join(', ')+' }']
+  end
+  #print m.join(",\n")+"\n};\n"
+end
+
 def mkopenclfuncs(name,t1,t2,func)
 
   print "
@@ -46,25 +113,23 @@ def mkopenclfuncs(name,t1,t2,func)
 	gsub(/#C/,c[i])
     end
   end
-
   # Function Array
-
   narray_types = ["NA_NONE", "NA_BYTE", "NA_SINT", "NA_LINT", "NA_SFLOAT", "NA_DFLOAT", "NA_SCOMPLEX", "NA_DCOMPLEX", "NA_ROBJ", "NA_NTYPES"]
   #print "\ncl_kernel #{name}Funcs =\n{ "
   #m = []
   for i in 0...c.size
     if func[i] == nil
   #    m += ['TpErr']
+      $kernels << "  #{name}Kernels[#{narray_types[i]}] = NULL;"
     elsif func[i]=='copy'
   #    m += ['Set'+c[$data_types.index(t1[i])]+c[i]]
-      $kernels << "  #{name}Funcs[#{narray_types[i]}] = SetFuncs[#{narray_types[i]}][#{narray_types[i]}];"
+      $kernels << "  #{name}Kernels[#{narray_types[i]}] = SetKernels[#{narray_types[i]}][#{narray_types[i]}];"
     else
   #    m += [name+c[i]]
-      $kernels << "  #{name}Funcs[#{narray_types[i]}] = (void*)clCreateKernel(program, \"#{name+c[i]}\", &ret);"
+      $kernels << "  #{name}Kernels[#{narray_types[i]}] = (void*)clCreateKernel(program, \"#{name+c[i]}\", &ret);"
     end
   end
   #print m.join(", ")+" };\n"
-
 end
 
 
@@ -118,34 +183,36 @@ static void na_zerodiv() {
 */
 EOM
 
+
 #
-##
-##  Set Fucs
-##
-#data = [
-#  [/[O]/,/[O]/,        "*p1 = *p2;"],
-#  [/[O]/,/[BI]/,       "*p1 = INT2FIX(*p2);"],
-#  [/[O]/,/[L]/,        "*p1 = INT2NUM(*p2);"],
-#  [/[O]/,/[FD]/,       "*p1 = rb_float_new(*p2);"],
-#  [/[O]/,/[XC]/,       "*p1 = rb_complex_new(p2->r,p2->i);"],
-#  [/[BIL]/,/[O]/,      "*p1 = NUM2INT(*p2);"],
-#  [/[FD]/,/[O]/,       "*p1 = NUM2DBL(*p2);"],
-#  [/[XC]/,/[O]/,       "p1->r = NUM2REAL(*p2); p1->i = NUM2IMAG(*p2);"],
-#  [/[BILFD]/,/[BILFD]/,"*p1 = *p2;"],
-#  [/[BILFD]/,/[XC]/,   "*p1 = p2->r;"],
-#  [/[XC]/,/[BILFD]/,   "p1->r = *p2; p1->i = 0;"],
-#  [/[XC]/,/[XC]/,      "p1->r = p2->r; p1->i = p2->i;"] ]
+#  Set Fucs
 #
-#$func_body = 
-#  "static void #name#CC(int n, char *p1, int i1, char *p2, int i2)
-#{
-#  for (; n; --n) {
-#    OPERATION
-#    p1+=i1; p2+=i2;
-#  }
-#}
-#"
-#mksetfuncs('Set','','',data)
+data = [
+  #[/[O]/,/[O]/,        "*p1 = *p2;"],
+  #[/[O]/,/[BI]/,       "*p1 = INT2FIX(*p2);"],
+  #[/[O]/,/[L]/,        "*p1 = INT2NUM(*p2);"],
+  #[/[O]/,/[FD]/,       "*p1 = rb_float_new(*p2);"],
+  #[/[O]/,/[XC]/,       "*p1 = rb_complex_new(p2->r,p2->i);"],
+  #[/[BIL]/,/[O]/,      "*p1 = NUM2INT(*p2);"],
+  #[/[FD]/,/[O]/,       "*p1 = NUM2DBL(*p2);"],
+  #[/[XC]/,/[O]/,       "p1->r = NUM2REAL(*p2); p1->i = NUM2IMAG(*p2);"],
+  #[/[BILFD]/,/[BILFD]/,"*p1 = *p2;"],
+  [/[BILF]/,/[BILF]/,"*p1 = *p2;"],
+  #[/[BILFD]/,/[XC]/,   "*p1 = p2->r;"],
+  [/[BILF]/,/[X]/,   "*p1 = p2->r;"],
+  #[/[XC]/,/[BILFD]/,   "p1->r = *p2; p1->i = 0;"],
+  [/[X]/,/[BILF]/,   "p1->r = *p2; p1->i = 0;"],
+  #[/[XC]/,/[XC]/,      "p1->r = p2->r; p1->i = p2->i;"]
+  [/[X]/,/[X]/,      "p1->r = p2->r; p1->i = p2->i;"]
+]
+$func_body = 
+  "__kernel void #name#CC(__local char* p0, __global char* p1, int i1, int b1, __global char* p2, int i2, int b2)
+{
+  GLOBAL_ID
+  OPERATION
+}
+"
+mkopenclsetfuncs('Set','','',data)
 
 
 
@@ -388,26 +455,22 @@ mkopenclfuncs('Max', $opencl_types, $opencl_types,
 )
 
 
-#mksortfuncs('Sort', $data_types, $data_types, [nil] +
+#mksortfuncs('Sort', $opencl_types, $opencl_types,
+# [nil] +
 # ["
 #{ if (*p1 > *p2) return 1;
 #  if (*p1 < *p2) return -1;
 #  return 0; }"]*5 +
-# [nil]*2 +
-# ["
-#{ VALUE r = rb_funcall(*p1, na_id_compare, 1, *p2);
-#  return NUM2INT(r); }"]
+# [nil]*3
 #)
 #
-#mksortfuncs('SortIdx', $data_types, $data_types, [nil] +
+#mksortfuncs('SortIdx', $opencl_types, $opencl_types,
+# [nil] +
 # ["
 #{ if (**p1 > **p2) return 1;
 #  if (**p1 < **p2) return -1;
 #  return 0; }"]*5 +
-# [nil]*2 +
-# ["
-#{ VALUE r = rb_funcall(**p1, na_id_compare, 1, **p2);
-#  return NUM2INT(r); }"]
+# [nil]*3
 #)
 
 # indgen

@@ -282,7 +282,17 @@ static void
 	na_range_to_sequence(v,&len,&start,&dir);
 	if (len>0) {
 	  pos = na_index_pos(na,idx);
-	  IndGenFuncs[type](len, NA_PTR(na,pos),na_sizeof[type], start,dir);
+#ifdef __OPENCL__
+          if (OPENCL_KERNEL(IndGenKernels[type])) {
+            cl_mem buf = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, na_sizeof[type]*len, NA_PTR(na,pos), NULL);
+            na_opencl_do_IndGenKernel(na->queue, len, type, buf, na_sizeof[type], start, dir);
+            clReleaseMemObject(buf);
+          }else {
+#endif
+	  IndGenFuncs[type](len, NA_PTR(na,pos), na_sizeof[type], start, dir);
+#ifdef __OPENCL__
+          }
+#endif
 	  idx[0] += len;
 	}
       }
@@ -318,8 +328,17 @@ static void
 	    pos = na_index_pos(na,idx);
 	    ++idx[thisrank];
 	    step = na_index_pos(na,idx)-pos;
-	    IndGenFuncs[type]( len, NA_PTR(na,pos), na_sizeof[type]*step,
-			       start, dir );
+#ifdef __OPENCL__
+            if (OPENCL_KERNEL(IndGenKernels[type])) {
+              cl_mem buf = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, na_sizeof[type]*step*len, NA_PTR(na,pos), NULL);
+              na_opencl_do_IndGenKernel(na->queue, len, type, buf, na_sizeof[type]*step, start, dir);
+              clReleaseMemObject(buf);
+            }else {
+#endif
+	    IndGenFuncs[type](len, NA_PTR(na,pos), na_sizeof[type]*step, start, dir);
+#ifdef __OPENCL__
+            }
+#endif
 	    idx[thisrank] += len-1;
 	  }
 	}
