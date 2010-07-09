@@ -117,9 +117,17 @@ static int
     s->n    = a1->total;
     s->step = 1;
     s->idx  = p = ALLOC_N(na_index_t, a1->total);
-    SetFuncs[NA_LINT][a1->type]( s->n,
-				 s->idx, na_sizeof[NA_LINT],
-				 a1->ptr, na_sizeof[a1->type] );
+#ifdef __OPENCL__
+    if (OPENCL_KERNEL(SetKernels[NA_LINT][a1->type])) {
+      cl_mem idx_buf = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, na_sizeof[NA_LINT]*(s->n), s->idx, NULL);
+      na_opencl_do_SetFunc(a1->queue, s->n, NA_LINT, idx_buf, na_sizeof[NA_LINT], a1->type, a1->buffer, na_sizeof[a1->type]);
+      clReleaseMemObject(idx_buf);
+    }else {
+#endif
+    SetFuncs[NA_LINT][a1->type]( s->n, s->idx, na_sizeof[NA_LINT], a1->ptr, na_sizeof[a1->type] );
+#ifdef __OPENCL__
+    }
+#endif
     for ( i=a1->total; i>0; --i ) {
       if ( *p<0 ) *p += size;
       if ( *p<0 || *p>=size )

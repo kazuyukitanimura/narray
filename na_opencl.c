@@ -16,6 +16,60 @@
 #include "na_opencl.h"
 
 void
+ na_opencl_do_IndGenKernel(cl_command_queue queue, size_t global_item_size, int type, cl_mem buf, int i, int start, int step)
+{
+    cl_int ret;
+
+    /* set OpenCL kernel arguments */
+    ret = clSetKernelArg((void*)IndGenKernels[type], 0, global_item_size*i, NULL);
+
+    ret = clSetKernelArg((void*)IndGenKernels[type], 1, sizeof(cl_mem), (void *)&buf);
+    ret = clSetKernelArg((void*)IndGenKernels[type], 2, sizeof(cl_int), (void *)&i);
+    int b1 = 0; 
+    ret = clSetKernelArg((void*)IndGenKernels[type], 3, sizeof(cl_int), (void *)&b1);
+
+    ret = clSetKernelArg((void*)IndGenKernels[type], 4, sizeof(cl_int), (void *)&start);
+    ret = clSetKernelArg((void*)IndGenKernels[type], 5, sizeof(cl_int), (void *)&step);
+    int b2 = 0; 
+    ret = clSetKernelArg((void*)IndGenKernels[type], 6, sizeof(cl_int), (void *)&b2);
+
+    /* execute OpenCL kernel */
+    ret = clEnqueueNDRangeKernel(queue, (void*)IndGenKernels[type], 1, NULL, &global_item_size, NULL, 0, NULL, NULL);
+    if (ret != CL_SUCCESS)
+      rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
+
+    /* run commands in queue and make sure all commands in queue is done */
+    clFlush(queue); clFinish(queue);
+}
+
+void
+ na_opencl_do_SetKernel(cl_command_queue queue, size_t global_item_size, int type1, cl_mem buf1, int i1, int type2, cl_mem buf2, int i2)
+{
+  cl_int ret;
+
+  /* set OpenCL kernel arguments */
+  ret = clSetKernelArg((void*)SetKernels[type1][type2], 0, global_item_size*i1, NULL);
+
+  ret = clSetKernelArg((void*)SetKernels[type1][type2], 1, sizeof(cl_mem), (void *)&buf1);
+  ret = clSetKernelArg((void*)SetKernels[type1][type2], 2, sizeof(cl_int), (void *)&i1);
+  int b1 = 0;
+  ret = clSetKernelArg((void*)SetKernels[type1][type2], 3, sizeof(cl_int), (void *)&b1);
+
+  ret = clSetKernelArg((void*)SetKernels[type1][type2], 4, sizeof(cl_mem), (void *)&buf2);
+  ret = clSetKernelArg((void*)SetKernels[type1][type2], 5, sizeof(cl_int), (void *)&i2);
+  int b2 = 0;
+  ret = clSetKernelArg((void*)SetKernels[type1][type2], 6, sizeof(cl_int), (void *)&b2);
+
+  /* execute OpenCL kernel */
+  ret = clEnqueueNDRangeKernel(queue, (void*)SetKernels[type1][type2], 1, NULL, &global_item_size, NULL, 0, NULL, NULL);
+  if (ret != CL_SUCCESS)
+    rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
+
+  /* run commands in queue and make sure all commands in queue is done */
+  clFlush(queue); clFinish(queue);
+}
+
+void
  na_opencl_do_loop_unary(cl_command_queue queue, int nd, char *p1, char *p2, struct slice *s1, struct slice *s2, cl_mem buf1, cl_mem buf2, void* kernel_func )
 {
   int *si;

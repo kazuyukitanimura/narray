@@ -80,6 +80,58 @@ extern na_sortfunc_t SortIdxFuncs;
 extern na_bifunc_t RefMaskFuncs;
 extern na_bifunc_t SetMaskFuncs;
 
+#ifdef __OPENCL__
+/* kernel arrays */
+na_setfunc_t SetKernels;
+//na_ufunc_t  SwpKernels;
+//na_ufunc_t  H2NKernels;
+//na_ufunc_t  H2VKernels;
+na_ufunc_t  NegKernels;
+//na_ufunc_t  RcpKernels;
+na_ufunc_t  AbsKernels;
+na_ufunc_t  RealKernels;
+na_ufunc_t  ImagKernels;
+na_ufunc_t  AnglKernels;
+na_ufunc_t  ImagMulKernels;
+na_ufunc_t  ConjKernels;
+na_ufunc_t  FloorKernels;
+na_ufunc_t  CeilKernels;
+na_ufunc_t  RoundKernels;
+//na_ufunc_t  ToStrKernels;
+//na_ufunc_t  InspKernels;
+na_ufunc_t  IndGenKernels;
+na_ufunc_t  AddUKernels;
+na_ufunc_t  SbtUKernels;
+na_ufunc_t  MulUKernels;
+na_ufunc_t  DivUKernels;
+na_bifunc_t AddBKernels;
+na_bifunc_t SbtBKernels;
+na_bifunc_t MulBKernels;
+na_bifunc_t DivBKernels;
+na_bifunc_t MulAddKernels;
+na_bifunc_t MulSbtKernels;
+na_bifunc_t ModBKernels;
+na_bifunc_t BAnKernels;
+na_bifunc_t BOrKernels;
+na_bifunc_t BXoKernels;
+na_ufunc_t  BRvKernels;
+na_bifunc_t ImgSetKernels;
+//na_setfunc_t PowKernels;
+na_bifunc_t atan2Kernels;
+na_bifunc_t CmpKernels;
+na_bifunc_t EqlKernels;
+na_ufunc_t  AndKernels;
+na_ufunc_t  Or_Kernels;
+na_ufunc_t  XorKernels;
+na_ufunc_t  NotKernels;
+na_ufunc_t  MinKernels;
+na_ufunc_t  MaxKernels;
+//na_sortfunc_t SortKernels;
+//na_sortfunc_t SortIdxKernels;
+//na_bifunc_t RefMaskKernels;
+//na_bifunc_t SetMaskKernels;
+#endif
+
 /* variables */
 
 extern VALUE rb_mNMath;

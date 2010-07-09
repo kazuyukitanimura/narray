@@ -477,9 +477,15 @@ void
   if (dst->type == src->type)
     memcpy(dst->ptr, src->ptr, src->total*na_sizeof[src->type]);
   else {
-    SetFuncs[dst->type][src->type]( src->total,
-				    dst->ptr, na_sizeof[dst->type],
-				    src->ptr, na_sizeof[src->type] );
+#ifdef __OPENCL__
+  if (OPENCL_KERNEL(SetKernels[dst->type][src->type])) {
+    na_opencl_do_SetKernel(dst->queue, src->total, dst->type, dst->buffer, na_sizeof[dst->type], src->type, src->buffer, na_sizeof[src->type]);
+  }else {
+#endif
+    SetFuncs[dst->type][src->type]( src->total, dst->ptr, na_sizeof[dst->type], src->ptr, na_sizeof[src->type] );
+#ifdef __OPENCL__
+  }
+#endif
   }
 }
 
@@ -1011,9 +1017,15 @@ VALUE na_fill(VALUE self, volatile VALUE val)
   if (a2->total != 1)
     rb_raise(rb_eArgError, "single-element argument required");
 
-  SetFuncs[a1->type][a2->type]( a1->total, 
-				a1->ptr, na_sizeof[a1->type],
-				a2->ptr, 0 );
+#ifdef __OPENCL__
+  if (OPENCL_KERNEL(SetKernels[a1->type][a2->type])) {
+    na_opencl_do_SetKernel(a1->queue, a1->total, a1->type, a1->buffer, na_sizeof[a1->type], a2->type, a2->buffer, 0);
+  }else {
+#endif
+  SetFuncs[a1->type][a2->type]( a1->total, a1->ptr, na_sizeof[a1->type], a2->ptr, 0 );
+#ifdef __OPENCL__
+  }
+#endif
   return self;
 }
 
@@ -1036,26 +1048,8 @@ VALUE
 
   GetNArray(self,ary);
 #ifdef __OPENCL__
-  if ((ary->type > NA_NONE) && (ary->type < NA_DCOMPLEX) && (ary->type != NA_DFLOAT)) {
-    size_t global_item_size = ary->total;
-    cl_int ret;
-    /* set OpenCL kernel arguments */
-    ret = clSetKernelArg((void*)IndGenFuncs[ary->type], 0, global_item_size*na_sizeof[ary->type], NULL);
-    cl_mem buf = ary->buffer;
-    ret = clSetKernelArg((void*)IndGenFuncs[ary->type], 1, sizeof(cl_mem), (void *)&buf);
-    ret = clSetKernelArg((void*)IndGenFuncs[ary->type], 2, sizeof(cl_int), (void *)&na_sizeof[ary->type]);
-    int b1 = 0; 
-    ret = clSetKernelArg((void*)IndGenFuncs[ary->type], 3, sizeof(cl_int), &b1);
-    ret = clSetKernelArg((void*)IndGenFuncs[ary->type], 4, sizeof(cl_int), (void *)&start);
-    ret = clSetKernelArg((void*)IndGenFuncs[ary->type], 5, sizeof(cl_int), (void *)&step);
-    int b2 = 0; 
-    ret = clSetKernelArg((void*)IndGenFuncs[ary->type], 6, sizeof(cl_int), (void *)&b2);
-    /* execute OpenCL kernel */
-    ret = clEnqueueNDRangeKernel(ary->queue, (void*)IndGenFuncs[ary->type], 1, NULL, &global_item_size, NULL, 0, NULL, NULL);
-    if (ret != CL_SUCCESS)
-      rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
-    /* run commands in queue and make sure all commands in queue is done */
-    clFlush(ary->queue); clFinish(ary->queue);
+  if (OPENCL_KERNEL(IndGenKernels[ary->type])) {
+    na_opencl_do_IndGenKernel(ary->queue, ary->total, ary->type, ary->buffer, na_sizeof[ary->type], start, step);
   }else {
 #endif
   IndGenFuncs[ary->type]( ary->total, 
