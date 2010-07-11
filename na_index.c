@@ -120,7 +120,7 @@ static int
 #ifdef __OPENCL__
     if (OPENCL_KERNEL(SetKernels[NA_LINT][a1->type])) {
       cl_mem idx_buf = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, na_sizeof[NA_LINT]*(s->n), s->idx, NULL);
-      na_opencl_do_SetFunc(a1->queue, s->n, NA_LINT, idx_buf, na_sizeof[NA_LINT], a1->type, a1->buffer, na_sizeof[a1->type]);
+      na_opencl_do_SetKernel(a1->queue, s->n, NA_LINT, idx_buf, na_sizeof[NA_LINT], a1->type, a1->buffer, na_sizeof[a1->type]);
       clReleaseMemObject(idx_buf);
     }else {
 #endif

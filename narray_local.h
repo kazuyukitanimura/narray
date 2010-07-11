@@ -83,9 +83,9 @@ extern na_bifunc_t SetMaskFuncs;
 #ifdef __OPENCL__
 /* kernel arrays */
 na_setfunc_t SetKernels;
-//na_ufunc_t  SwpKernels;
-//na_ufunc_t  H2NKernels;
-//na_ufunc_t  H2VKernels;
+na_ufunc_t  SwpKernels;
+na_ufunc_t  H2NKernels;
+na_ufunc_t  H2VKernels;
 na_ufunc_t  NegKernels;
 //na_ufunc_t  RcpKernels;
 na_ufunc_t  AbsKernels;
