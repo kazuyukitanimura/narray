@@ -13,6 +13,8 @@ $realopencl_types =
  %w(none uchar short int float double float double VALUE)
 $intopencl_types = 
  %w(none uchar short int int int scomplex dcomplex VALUE)
+$swapopencl_types = 
+ %w(none uchar uchar2 uchar4 uchar4 uchar8 uchar8 uchar16 VALUE)
 
 def mkopenclsetfuncs(name,op,id,funcs)
 
@@ -92,7 +94,7 @@ def mkopenclfuncs(name,t1,t2,func)
   trcl= $realopencl_types
 
   for i in 0...c.size
-    if func[i] != nil && func[i] != "copy"
+    if func[i] != nil && func[i] != "set" && func[i] != "swp"
       f = func[i].
 	gsub(/p0->/,"((#{t1[i]}*)&p0[gid*i1])->").
 	gsub(/p1->/,"((#{t1[i]}*)&p1[gid*i1+b1])->").
@@ -121,7 +123,9 @@ def mkopenclfuncs(name,t1,t2,func)
     if func[i] == nil
   #    m += ['TpErr']
       $kernels << "  #{name}Kernels[#{narray_types[i]}] = NULL;"
-    elsif func[i]=='copy'
+    elsif func[i]=='swp'
+      $kernels << "  #{name}Kernels[#{narray_types[i]}] = SwpKernels[#{narray_types[i]}];"
+    elsif func[i]=='set'
   #    m += ['Set'+c[$data_types.index(t1[i])]+c[i]]
       $kernels << "  #{name}Kernels[#{narray_types[i]}] = SetKernels[#{narray_types[i]}][#{narray_types[i]}];"
     else
@@ -227,42 +231,51 @@ $func_body =
 }
 "
 
-#mkfuncs('Swp', $swap_types, $swap_types,
-# [nil] +
-# ["*p1 = *p2;"] + 
-# ["na_size16_t x;  swap16(x,*p2);   *p1 = x;"] + 
-# ["na_size32_t x;  swap32(x,*p2);   *p1 = x;"] + 
-# ["na_size32_t x;  swap32(x,*p2);   *p1 = x;"] + 
-# ["na_size64_t x;  swap64(x,*p2);   *p1 = x;"] + 
-# ["na_size64_t x;  swap64c(x,*p2);  *p1 = x;"] + 
-# ["na_size128_t x; swap128c(x,*p2); *p1 = x;"] + 
-# ["*p1 = *p2;"]
-#)
-#
-#print <<EOM
-#
-#/* ------------------------- H2N --------------------------- */
-##ifdef WORDS_BIGENDIAN
-#
-#na_func_t H2NFuncs =
-#{ TpErr, SetBB, SetII, SetLL, SetFF, SetDD, SetXX, SetCC, SetOO };
-#
-#na_func_t H2VFuncs =
-#{ TpErr, SetBB, SwpI, SwpL, SwpF, SwpD, SwpX, SwpC, SetOO };
-#
-##else
-##ifdef DYNAMIC_ENDIAN  /* not supported yet */
-##else  /* LITTLE ENDIAN */
-#
-#na_func_t H2NFuncs =
-#{ TpErr, SetBB, SwpI, SwpL, SwpF, SwpD, SwpX, SwpC, SetOO };
-#
-#na_func_t H2VFuncs =
-#{ TpErr, SetBB, SetII, SetLL, SetFF, SetDD, SetXX, SetCC, SetOO };
-#
-##endif
-##endif
-#EOM
+mkopenclfuncs('Swp', $swapopencl_types, $swapopencl_types,
+ [nil] +
+ ["*p1 = *p2;"] + 
+ ["*p1 = *p2.s10;"] + 
+ ["*p1 = *p2.s3210;"]*2 + 
+ ["*p1 = *p2.s76543210;"] + 
+ ["*p1 = *p2.s32107654;"] + 
+ ["*p1 = *p2.s76543210fedcba98;"] + 
+ [nil]
+)
+
+$kernels << "  cl_bool little_endian;"
+$kernels << "  clGetDeviceInfo(device_id, CL_DEVICE_ENDIAN_LITTLE, sizeof(little_endian), &little_endian, NULL);"
+$kernels << "  if (little_endian) { /* LITTLE ENDIAN */"
+
+mkopenclfuncs('H2N', [], [],
+ [nil] +
+ ['set'] + 
+ ['swp']*6 + 
+ [nil]
+)
+
+mkopenclfuncs('H2V', [], [],
+ [nil] +
+ ['set']*7 + 
+ [nil]
+)
+
+$kernels << "  }else if (CL_FALSE) { /* DYNAMIC ENDIAN not supported yet */"
+$kernels << "  }else { /* BIG ENDIAN */"
+
+mkopenclfuncs('H2N', [], [],
+ [nil] +
+ ['set']*7 + 
+ [nil]
+)
+
+mkopenclfuncs('H2V', [], [],
+ [nil] +
+ ['set'] + 
+ ['swp']*6 + 
+ [nil]
+)
+
+$kernels << "  }"
 
 mkopenclfuncs('Neg', $opencl_types, $opencl_types,
  [nil] +
@@ -353,21 +366,21 @@ mkopenclfuncs('ImgSet',$opencl_types,$realopencl_types,
 
 mkopenclfuncs('Floor',$intopencl_types,$opencl_types,
  [nil] +
- ['copy']*3 + 
+ ['set']*3 + 
  ["*p1 = floor*p2;"] + 
  [nil]*4
 )
 
 mkopenclfuncs('Ceil',$intopencl_types,$opencl_types,
  [nil] +
- ['copy']*3 + 
+ ['set']*3 + 
  ["*p1 = ceil*p2;"] + 
  [nil]*4
 )
 
 mkopenclfuncs('Round',$intopencl_types,$opencl_types,
  [nil] +
- ['copy']*3 + 
+ ['set']*3 + 
  ["*p1 = round*p2;"] + 
  [nil]*4
 )
@@ -384,9 +397,9 @@ mkopenclfuncs('Abs',$realopencl_types,$opencl_types,
 
 mkopenclfuncs('Real',$realopencl_types,$opencl_types,
  [nil] +
- ['copy']*4 + 
+ ['set']*4 + 
  [nil] +
- ['copy'] + 
+ ['set'] + 
  [nil] +
  [nil]
 )
@@ -419,7 +432,7 @@ mkopenclfuncs('ImagMul',$comp_types,$opencl_types,
 
 mkopenclfuncs('Conj',$opencl_types,$opencl_types,
  [nil] +
- ['copy']*4 + 
+ ['set']*4 + 
  [nil] +
  ["p1->r = p2->r; p1->i = -p2->i;"] +
  [nil]*2

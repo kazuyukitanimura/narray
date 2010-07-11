@@ -949,7 +949,7 @@ static VALUE na_conj_bang(VALUE self)
 /* method: self.swap_byte */
 static VALUE na_swap_byte(VALUE self)
 #ifdef __OPENCL__
-{ return na_unary_func( self, na_no_cast, SwpFuncs, NULL ); }
+{ return na_unary_func( self, na_no_cast, SwpFuncs, SwpKernels ); }
 #else
 { return na_unary_func( self, na_no_cast, SwpFuncs ); }
 #endif
@@ -957,7 +957,7 @@ static VALUE na_swap_byte(VALUE self)
 /* method: self.hton , self.ntoh */
 static VALUE na_hton(VALUE self)
 #ifdef __OPENCL__
-{ return na_unary_func( self, na_no_cast, H2NFuncs, NULL ); }
+{ return na_unary_func( self, na_no_cast, H2NFuncs, H2NKernels ); }
 #else
 { return na_unary_func( self, na_no_cast, H2NFuncs ); }
 #endif
@@ -965,7 +965,7 @@ static VALUE na_hton(VALUE self)
 /* method: self.htov , self.vtoh */
 static VALUE na_htov(VALUE self)
 #ifdef __OPENCL__
-{ return na_unary_func( self, na_no_cast, H2VFuncs, NULL ); }
+{ return na_unary_func( self, na_no_cast, H2VFuncs, H2VKernels ); }
 #else
 { return na_unary_func( self, na_no_cast, H2VFuncs ); }
 #endif
@@ -1332,8 +1332,7 @@ static struct NARRAY *
     na_opencl_do_loop_unary(a1->queue, ndim, a1->ptr, a2->ptr, s1, s2, a1->buffer, a2->buffer, SetKernels[a1->type][a2->type] );
   }else {
 #endif
-  na_do_loop_unary( ndim, a1->ptr, a2->ptr, s1, s2,
-		    SetFuncs[a1->type][a2->type] );
+  na_do_loop_unary( ndim, a1->ptr, a2->ptr, s1, s2, SetFuncs[a1->type][a2->type] );
 #ifdef __OPENCL__
   }
 #endif

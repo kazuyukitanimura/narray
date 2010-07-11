@@ -101,10 +101,10 @@ void
     /* set OpenCL kernel arguments */
     ret = clSetKernelArg(kernel_func, 0, global_item_size*MAX(ps1,ps2)*sizeof(cl_char), NULL);
     ret = clSetKernelArg(kernel_func, 1, sizeof(cl_mem), (void *)&buf1);
-    int b1 = (int)(s1[0].p-p1); 
+    int b1 = (int)(s1[0].p-p1);
     ret = clSetKernelArg(kernel_func, 3, sizeof(cl_int), (void *)&b1);
     ret = clSetKernelArg(kernel_func, 4, sizeof(cl_mem), (void *)&buf2);
-    int b2 = (int)(s2[0].p-p2); 
+    int b2 = (int)(s2[0].p-p2);
     ret = clSetKernelArg(kernel_func, 6, sizeof(cl_int), (void *)&b2);
 
     /* execute OpenCL kernel */
