@@ -5,8 +5,6 @@ $kernels = ["#define CREATE_OPENCL_KERNELS(program,ret) {"]
 fname = "na_kernel.cl"
 $> = open(fname,"w")
 
-upcast_ary = $upcast.collect{|i| '  {'+i.join(", ")+'}'}.join(",\n")
-
 $opencl_types = 
  %w(none uchar short int float double scomplex dcomplex VALUE)
 $realopencl_types = 
@@ -159,20 +157,6 @@ print <<EOM
 typedef struct { float r,i; }  scomplex;
 //typedef struct { double r,i; } dcomplex;
 /*
-const int na_upcast[NA_NTYPES][NA_NTYPES] = {
-#{upcast_ary} };
-
-const int na_no_cast[NA_NTYPES] =
- { 0, 1, 2, 3, 4, 5, 6, 7, 8 };
-const int na_cast_real[NA_NTYPES] =
- { 0, 1, 2, 3, 4, 5, 4, 5, 8 };
-const int na_cast_comp[NA_NTYPES] =
- { 0, 6, 6, 6, 6, 7, 6, 7, 8 };
-const int na_cast_round[NA_NTYPES] =
- { 0, 1, 2, 3, 3, 3, 6, 7, 8 };
-const int na_cast_byte[NA_NTYPES] =
- { 0, 1, 1, 1, 1, 1, 1, 1, 1 };
-
 
 static void TpErr(void) {
     rb_raise(rb_eTypeError,"illegal operation with this type");
@@ -488,7 +472,7 @@ mkopenclfuncs('Max', $opencl_types, $opencl_types,
 
 # indgen
 $func_body = 
-  "__kernel void #name#C(__local char* p0, __global char* p1, int i1, int b1, int p2, int i2, int b2)
+  "__kernel void #name#C(__global char* p1, int i1, int b1, int p2, int i2, int b2)
 {
   int gid = get_global_id(0);
   OPERATION

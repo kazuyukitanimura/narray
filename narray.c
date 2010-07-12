@@ -114,11 +114,11 @@ static void
   }
 #ifdef __OPENCL__
   /* releasing OpenCL objects */
-  clReleaseCommandQueue(ary->queue);
-  ary->queue = NULL;
   if ( ary->total > 0 )
     clReleaseMemObject(ary->buffer);
   ary->buffer = NULL;
+  clReleaseCommandQueue(ary->queue);
+  ary->queue = NULL;
 #endif
   xfree(ary);
 }

@@ -21,17 +21,15 @@ void
     cl_int ret;
 
     /* set OpenCL kernel arguments */
-    ret = clSetKernelArg((void*)IndGenKernels[type], 0, global_item_size*i, NULL);
+    ret = clSetKernelArg((void*)IndGenKernels[type], 0, sizeof(cl_mem), (void *)&buf);
+    ret = clSetKernelArg((void*)IndGenKernels[type], 1, sizeof(cl_int), (void *)&i);
+    int b1 = 0;
+    ret = clSetKernelArg((void*)IndGenKernels[type], 2, sizeof(cl_int), (void *)&b1);
 
-    ret = clSetKernelArg((void*)IndGenKernels[type], 1, sizeof(cl_mem), (void *)&buf);
-    ret = clSetKernelArg((void*)IndGenKernels[type], 2, sizeof(cl_int), (void *)&i);
-    int b1 = 0; 
-    ret = clSetKernelArg((void*)IndGenKernels[type], 3, sizeof(cl_int), (void *)&b1);
-
-    ret = clSetKernelArg((void*)IndGenKernels[type], 4, sizeof(cl_int), (void *)&start);
-    ret = clSetKernelArg((void*)IndGenKernels[type], 5, sizeof(cl_int), (void *)&step);
-    int b2 = 0; 
-    ret = clSetKernelArg((void*)IndGenKernels[type], 6, sizeof(cl_int), (void *)&b2);
+    ret = clSetKernelArg((void*)IndGenKernels[type], 3, sizeof(cl_int), (void *)&start);
+    ret = clSetKernelArg((void*)IndGenKernels[type], 4, sizeof(cl_int), (void *)&step);
+    int b2 = 0;
+    ret = clSetKernelArg((void*)IndGenKernels[type], 5, sizeof(cl_int), (void *)&b2);
 
     /* execute OpenCL kernel */
     ret = clEnqueueNDRangeKernel(queue, (void*)IndGenKernels[type], 1, NULL, &global_item_size, NULL, 0, NULL, NULL);
@@ -79,8 +77,8 @@ void
 
   i  = nd;
   si = ALLOCA_N(int,nd);
-  s1[i].p = p1;
-  s2[i].p = p2;
+  s1[i].p = 0;//p1;
+  s2[i].p = 0;//p2;
 ///////////////////////////////////////////////////
   size_t global_item_size = s2[0].n;
   cl_int ret;
@@ -101,10 +99,10 @@ void
     /* set OpenCL kernel arguments */
     ret = clSetKernelArg(kernel_func, 0, global_item_size*MAX(ps1,ps2)*sizeof(cl_char), NULL);
     ret = clSetKernelArg(kernel_func, 1, sizeof(cl_mem), (void *)&buf1);
-    int b1 = (int)(s1[0].p-p1);
+    size_t b1 = (size_t)(s1[0].p);
     ret = clSetKernelArg(kernel_func, 3, sizeof(cl_int), (void *)&b1);
     ret = clSetKernelArg(kernel_func, 4, sizeof(cl_mem), (void *)&buf2);
-    int b2 = (int)(s2[0].p-p2);
+    size_t b2 = (size_t)(s2[0].p);
     ret = clSetKernelArg(kernel_func, 6, sizeof(cl_int), (void *)&b2);
 
     /* execute OpenCL kernel */
@@ -140,9 +138,9 @@ void
 
   si = ALLOCA_N(int,nd);
   i  = nd;
-  s1[i].p = p1;
-  s2[i].p = p2;
-  s3[i].p = p3;
+  s1[i].p = 0;//p1;
+  s2[i].p = 0;//p2;
+  s3[i].p = 0;//p3;
 ///////////////////////////////////////////////////
   size_t global_item_size = s2[0].n;
   cl_int ret;
@@ -166,13 +164,13 @@ void
     /* set OpenCL kernel arguments */
     ret = clSetKernelArg(kernel_func, 0, global_item_size*MAX(ps1,ps2)*sizeof(cl_char), NULL);
     ret = clSetKernelArg(kernel_func, 1, sizeof(cl_mem), (void *)&buf1);
-    int b1 = (int)(s1[0].p-p1); 
+    size_t b1 = (size_t)(s1[0].p);
     ret = clSetKernelArg(kernel_func, 3, sizeof(cl_int), (void *)&b1);
     ret = clSetKernelArg(kernel_func, 4, sizeof(cl_mem), (void *)&buf2);
-    int b2 = (int)(s2[0].p-p2); 
+    size_t b2 = (size_t)(s2[0].p);
     ret = clSetKernelArg(kernel_func, 6, sizeof(cl_int), (void *)&b2);
     ret = clSetKernelArg(kernel_func, 7, sizeof(cl_mem), (void *)&buf3);
-    int b3 = (int)(s3[0].p-p3); 
+    size_t b3 = (size_t)(s3[0].p);
     ret = clSetKernelArg(kernel_func, 9, sizeof(cl_int), (void *)&b3);
 
     /* execute OpenCL kernel */
