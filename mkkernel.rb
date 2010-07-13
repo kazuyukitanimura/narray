@@ -451,6 +451,29 @@ mkopenclfuncs('Max', $opencl_types, $opencl_types,
  [nil]*4
 )
 
+#
+#  Recip
+#
+mkopenclfuncs('Rcp', $opencl_types, $opencl_types,
+ [nil] +
+ ["*p1 = 1/*p2;"]*4 + 
+ [nil] +
+ ["typecl z = *p2;
+  typercl x, y;
+  if ( (z.r<0 ? -z.r:z.r) > (z.i<0 ? -z.i:z.i) ) {
+    x = z.i/z.r;
+    y = (1+x*x)*z.r;
+    p1->r =  1/y;
+    p1->i = -x/y;
+  } else {
+    x = z.r/z.i;
+    y = (1+x*x)*z.i;
+    p1->r =  x/y;
+    p1->i = -1/y;
+  }"] +
+ [nil]*2
+)
+
 
 #mksortfuncs('Sort', $opencl_types, $opencl_types,
 # [nil] +

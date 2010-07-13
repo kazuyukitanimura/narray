@@ -989,7 +989,7 @@ static VALUE na_neg(VALUE self)
 /* method: self.recip */
 static VALUE na_recip(VALUE self)
 #ifdef __OPENCL__
-{ return na_unary_func( self, na_no_cast, RcpFuncs, NULL ); }
+{ return na_unary_func( self, na_no_cast, RcpFuncs, RcpKernels ); }
 #else
 { return na_unary_func( self, na_no_cast, RcpFuncs ); }
 #endif
