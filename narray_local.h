@@ -87,7 +87,7 @@ na_ufunc_t  SwpKernels;
 na_ufunc_t  H2NKernels;
 na_ufunc_t  H2VKernels;
 na_ufunc_t  NegKernels;
-//na_ufunc_t  RcpKernels;
+na_ufunc_t  RcpKernels;
 na_ufunc_t  AbsKernels;
 na_ufunc_t  RealKernels;
 na_ufunc_t  ImagKernels;
