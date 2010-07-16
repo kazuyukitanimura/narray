@@ -680,7 +680,7 @@ static VALUE
 				CLASS_OF(obj1) );
 
 #ifdef __OPENCL__
-  na_exec_binary( NA_STRUCT(obj3), a1, a2, PowFuncs[a1->type][a2->type], NULL );
+  na_exec_binary( NA_STRUCT(obj3), a1, a2, PowFuncs[a1->type][a2->type], PowKernels[a1->type][a2->type] );
 #else
   na_exec_binary( NA_STRUCT(obj3), a1, a2, PowFuncs[a1->type][a2->type] );
 #endif

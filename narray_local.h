@@ -116,7 +116,7 @@ na_bifunc_t BOrKernels;
 na_bifunc_t BXoKernels;
 na_ufunc_t  BRvKernels;
 na_bifunc_t ImgSetKernels;
-//na_setfunc_t PowKernels;
+na_setfunc_t PowKernels;
 na_bifunc_t atan2Kernels;
 na_bifunc_t CmpKernels;
 na_bifunc_t EqlKernels;
