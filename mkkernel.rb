@@ -524,7 +524,7 @@ mkopenclfuncs('tan', $opencl_types, $opencl_types,
   th = tanh(2 * p2->i);
   k = sqrt(1 - th * th); /* sech */
   d  = 1 + cos(2 * p2->r) * k;
-  p1->r = k * sin(2 * p2->r) l /d;
+  p1->r = k * sin(2 * p2->r) / d;
   p1->i = th / d;"] +
  [nil]*2
 )
@@ -555,7 +555,7 @@ mkopenclfuncs('tanh', $opencl_types, $opencl_types,
   th = tanh(2 * p2->r);
   k = sqrt(1 - th * th); /* sech */
   d  = 1 + cos(2 * p2->i) * k;
-  p1->i = k * sin(2 * p2->i) l /d;
+  p1->i = k * sin(2 * p2->i) / d;
   p1->r = th / d;"] +
  [nil]*2
 )
