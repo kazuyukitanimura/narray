@@ -693,7 +693,11 @@ print <<EOM
 /* ------------------------- Execution -------------------------- */
 
 static void
+#ifdef __OPENCL__
+ na_exec_math(struct NARRAY *a1, struct NARRAY *a2, void (*func)(), void* kernel )
+#else
  na_exec_math(struct NARRAY *a1, struct NARRAY *a2, void (*func)())
+#endif
 {
   int  i, s1, s2;
   char *p1, *p2;
@@ -702,16 +706,53 @@ static void
   s2 = na_sizeof[a2->type];
   p1 = a1->ptr;
   p2 = a2->ptr;
+#ifdef __OPENCL__
+  if (OPENCL_KERNEL(kernel)) {
+    cl_int ret;
+    size_t global_item_size = a1->total;
+    cl_command_queue queue = a1->queue;
+    cl_mem buf1 = a1->buffer;
+    int b1 = 0;
+    cl_mem buf2 = a2->buffer;
+    int b2 = 0;
+ 
+    /* set OpenCL kernel arguments */
+    ret = clSetKernelArg((void*)kernel, 0, global_item_size*s1, NULL);
+
+    ret = clSetKernelArg((void*)kernel, 1, sizeof(cl_mem), (void *)&buf1);
+    ret = clSetKernelArg((void*)kernel, 2, sizeof(cl_int), (void *)&s1);
+    ret = clSetKernelArg((void*)kernel, 3, sizeof(cl_int), (void *)&b1);
+
+    ret = clSetKernelArg((void*)kernel, 4, sizeof(cl_mem), (void *)&buf2);
+    ret = clSetKernelArg((void*)kernel, 5, sizeof(cl_int), (void *)&s2);
+    ret = clSetKernelArg((void*)kernel, 6, sizeof(cl_int), (void *)&b2);
+
+    /* execute OpenCL kernel */
+    ret = clEnqueueNDRangeKernel(queue, (void*)kernel, 1, NULL, &global_item_size, NULL, 0, NULL, NULL);
+    if (ret != CL_SUCCESS)
+      rb_raise(rb_eRuntimeError, "Failed executing kernel \\n");
+
+    /* run commands in queue and make sure all commands in queue is done */
+    clFlush(queue); clFinish(queue);
+  }else {
+#endif
   for (i=a1->total; i ; i--) {
     (*func)( p1, p2 );
     p1 += s1;
     p2 += s2;
   }
+#ifdef __OPENCL__
+  }
+#endif
 }
 
 
 static VALUE
+#ifdef __OPENCL__
+ na_math_func(volatile VALUE self, na_mathfunc_t funcs, na_mathfunc_t kernels)
+#else
  na_math_func(volatile VALUE self, na_mathfunc_t funcs)
+#endif
 {
   struct NARRAY *a1, *a2;
   VALUE ans;
@@ -731,7 +772,11 @@ static VALUE
   ans = na_make_object(a2->type, a2->rank, a2->shape, CLASS_OF(self));
   GetNArray(ans,a1);
 
+#ifdef __OPENCL__
+  na_exec_math(a1, a2, funcs[a2->type], kernels[a2->type]);
+#else
   na_exec_math(a1, a2, funcs[a2->type]);
+#endif
 
   if (CLASS_OF(self) == cNArrayScalar)
     SetFuncs[NA_ROBJ][a1->type](1,&ans,0,a1->ptr,0);    
@@ -752,7 +797,11 @@ for i in data
   print <<EOM
 
 static VALUE na_math_#{bsname}(VALUE obj, VALUE x)
+#ifdef __OPENCL__
+{ return na_math_func(x,#{name}Funcs,#{name}Kernels); }
+#else
 { return na_math_func(x,#{name}Funcs); }
+#endif
 EOM
 end
 

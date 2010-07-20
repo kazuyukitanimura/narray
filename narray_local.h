@@ -130,6 +130,23 @@ na_ufunc_t  MaxKernels;
 //na_sortfunc_t SortIdxKernels;
 //na_bifunc_t RefMaskKernels;
 //na_bifunc_t SetMaskKernels;
+na_mathfunc_t sqrtKernels;
+na_mathfunc_t sinKernels;
+na_mathfunc_t cosKernels;
+na_mathfunc_t tanKernels;
+na_mathfunc_t sinhKernels;
+na_mathfunc_t coshKernels;
+na_mathfunc_t tanhKernels;
+na_mathfunc_t expKernels;
+na_mathfunc_t logKernels;
+na_mathfunc_t log10Kernels;
+na_mathfunc_t log2Kernels;
+na_mathfunc_t asinKernels;
+na_mathfunc_t asinhKernels;
+na_mathfunc_t acosKernels;
+na_mathfunc_t acoshKernels;
+na_mathfunc_t atanKernels;
+na_mathfunc_t atanhKernels;
 #endif
 
 /* variables */
