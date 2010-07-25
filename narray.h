@@ -107,8 +107,8 @@ enum NArray_Types {
 #define OPENCL_KERNEL(k) ((k) != NULL)
 
 /* global variables */
-cl_device_id device_id;
-cl_context context;
+extern cl_device_id device_id;
+extern cl_context context;
 void na_opencl_do_IndGenKernel(cl_command_queue, size_t, int, cl_mem, int, int, int);
 void na_opencl_do_SetKernel(cl_command_queue, size_t, int, cl_mem, int, int, cl_mem, int);
 #endif

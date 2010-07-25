@@ -15,6 +15,10 @@
 #include "narray_local.h"
 #include "na_opencl.h"
 
+/* global variables */
+cl_device_id device_id;
+cl_context context;
+
 void
  na_opencl_do_IndGenKernel(cl_command_queue queue, size_t global_item_size, int type, cl_mem buf, int i, int start, int step)
 {
@@ -257,7 +261,7 @@ void
     size_t len;
     char log[2048];
     clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, sizeof(log), log, &len);
-    rb_raise(rb_eRuntimeError, "Failed building %s\n%s\n%s\n", fileName, log);
+    rb_raise(rb_eRuntimeError, "Failed building %s\n%s\n", fileName, log);
   }
 
   /* create OpenCL kernels */
