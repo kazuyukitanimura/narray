@@ -12,8 +12,8 @@
 #include "narray.h"
 #include "narray_local.h"
 #ifdef __OPENCL__
-void na_opencl_do_loop_unary(cl_command_queue, int, char*, char*, struct slice*, struct slice*, cl_mem, cl_mem, void*);
-void na_opencl_do_loop_binary(cl_command_queue, int, char*, char*, char*, struct slice*, struct slice*, struct slice*, cl_mem, cl_mem, cl_mem, void*);
+void na_opencl_do_loop_unary(cl_command_queue, int, char*, char*, struct slice*, struct slice*, cl_mem, cl_mem, cl_kernel);
+void na_opencl_do_loop_binary(cl_command_queue, int, char*, char*, char*, struct slice*, struct slice*, struct slice*, cl_mem, cl_mem, cl_mem, cl_kernel);
 #endif
 
 int
@@ -454,7 +454,7 @@ int
 
 static void
 #ifdef __OPENCL__
- na_exec_unary(struct NARRAY *a1, struct NARRAY *a2, void (*func)(), void* kernel )
+ na_exec_unary(struct NARRAY *a1, struct NARRAY *a2, void (*func)(), cl_kernel kernel )
 #else
  na_exec_unary(struct NARRAY *a1, struct NARRAY *a2, void (*func)())
 #endif
@@ -498,7 +498,7 @@ static void
 /* a1 and/or a2 and/or a3 have extensible index */
 static void
 #ifdef __OPENCL__
- na_exec_binary( struct NARRAY *a1, struct NARRAY *a2, struct NARRAY *a3, void (*func)(), void* kernel )
+ na_exec_binary( struct NARRAY *a1, struct NARRAY *a2, struct NARRAY *a3, void (*func)(), cl_kernel kernel )
 #else
  na_exec_binary( struct NARRAY *a1, struct NARRAY *a2, struct NARRAY *a3, void (*func)() )
 #endif
@@ -615,7 +615,7 @@ static VALUE
 
 static VALUE
 #ifdef __OPENCL__
- na_bifunc(VALUE obj1, VALUE obj2, VALUE klass, na_bifunc_t funcs, na_bifunc_t kernels)
+ na_bifunc(VALUE obj1, VALUE obj2, VALUE klass, na_bifunc_t funcs, na_opencl_kernel1_t kernels)
 #else
  na_bifunc(VALUE obj1, VALUE obj2, VALUE klass, na_bifunc_t funcs)
 #endif
@@ -691,7 +691,7 @@ static VALUE
 
 static VALUE
 #ifdef __OPENCL__
- na_set_func(VALUE obj1, volatile VALUE obj2, na_ufunc_t funcs, na_ufunc_t kernels)
+ na_set_func(VALUE obj1, volatile VALUE obj2, na_ufunc_t funcs, na_opencl_kernel1_t kernels)
 #else
  na_set_func(VALUE obj1, volatile VALUE obj2, na_ufunc_t funcs)
 #endif
@@ -731,7 +731,7 @@ static VALUE
 
 static VALUE
 #ifdef __OPENCL__
- na_unary_func(VALUE self, const int *cast, na_ufunc_t funcs, na_ufunc_t kernels)
+ na_unary_func(VALUE self, const int *cast, na_ufunc_t funcs, na_opencl_kernel1_t kernels)
 #else
  na_unary_func(VALUE self, const int *cast, na_ufunc_t funcs)
 #endif
@@ -755,7 +755,7 @@ static VALUE
 /* local function for comparison */
 static VALUE
 #ifdef __OPENCL__
- na_compare_func(VALUE self, VALUE other, na_bifunc_t funcs, na_bifunc_t kernels)
+ na_compare_func(VALUE self, VALUE other, na_bifunc_t funcs, na_opencl_kernel1_t kernels)
 #else
  na_compare_func(VALUE self, VALUE other, na_bifunc_t funcs)
 #endif
@@ -1625,7 +1625,7 @@ static void
 
 static VALUE
 #ifdef __OPENCL__
- na_minmax_func(int argc, VALUE *argv, VALUE self, na_ufunc_t funcs, na_ufunc_t kernels)
+ na_minmax_func(int argc, VALUE *argv, VALUE self, na_ufunc_t funcs, na_opencl_kernel1_t kernels)
 #else
  na_minmax_func(int argc, VALUE *argv, VALUE self, na_ufunc_t funcs)
 #endif
