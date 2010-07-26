@@ -1,5 +1,6 @@
 require "mknafunc"
 
+$globals = []
 $kernels = ["#define CREATE_OPENCL_KERNELS(program,ret) {"]
 
 fname = "na_kernel.cl"
@@ -55,6 +56,7 @@ def mkopenclsetfuncs(name,op,id,funcs)
   # function pointer array
   narray_types = ["NA_NONE", "NA_BYTE", "NA_SINT", "NA_LINT", "NA_SFLOAT", "NA_DFLOAT", "NA_SCOMPLEX", "NA_DCOMPLEX", "NA_ROBJ", "NA_NTYPES"]
   #print "\nna_setfunc_t "+name+"Funcs = {\n"
+  $globals << "na_opencl_kernel2_t #{name}Kernels;" 
   #m = []
   for i in 0...n
     #l = []
@@ -63,7 +65,7 @@ def mkopenclsetfuncs(name,op,id,funcs)
       for k in funcs
 	if c[i]=~k[0] && c[j]=~k[1]
 	  #l += [name+c[i]+c[j]]
-          $kernels << "  #{name}Kernels[#{narray_types[i]}][#{narray_types[j]}] = (void*)clCreateKernel(program, \"#{name+c[i]+c[j]}\", &ret);"
+          $kernels << "  #{name}Kernels[#{narray_types[i]}][#{narray_types[j]}] = clCreateKernel(program, \"#{name+c[i]+c[j]}\", &ret);"
 	  f = false
 	  break
 	end
@@ -107,12 +109,15 @@ def mkopenclfuncs(name,t1,t2,func)
 	gsub(/#name/,name).
 	sub(/GLOBAL_ID/,'int gid = get_global_id(0);').
 	sub(/OPERATION/,f).
-	gsub(/#C/,c[i])
+	gsub(/#C/,c[i]).
+	gsub(/typecl/,tcl[i]).
+	gsub(/typercl/,trcl[i])
     end
   end
   # Function Array
   narray_types = ["NA_NONE", "NA_BYTE", "NA_SINT", "NA_LINT", "NA_SFLOAT", "NA_DFLOAT", "NA_SCOMPLEX", "NA_DCOMPLEX", "NA_ROBJ", "NA_NTYPES"]
   #print "\ncl_kernel #{name}Funcs =\n{ "
+  $globals << "na_opencl_kernel1_t #{name}Kernels;" 
   #m = []
   for i in 0...c.size
     if func[i] == nil
@@ -125,7 +130,7 @@ def mkopenclfuncs(name,t1,t2,func)
       $kernels << "  #{name}Kernels[#{narray_types[i]}] = SetKernels[#{narray_types[i]}][#{narray_types[i]}];"
     else
   #    m += [name+c[i]]
-      $kernels << "  #{name}Kernels[#{narray_types[i]}] = (void*)clCreateKernel(program, \"#{name+c[i]}\", &ret);"
+      $kernels << "  #{name}Kernels[#{narray_types[i]}] = clCreateKernel(program, \"#{name+c[i]}\", &ret);"
     end
   end
   #print m.join(", ")+" };\n"
@@ -1175,12 +1180,13 @@ def mkopenclpowfuncs(name,funcs)
 
   # function pointer array
   narray_types = ["NA_NONE", "NA_BYTE", "NA_SINT", "NA_LINT", "NA_SFLOAT", "NA_DFLOAT", "NA_SCOMPLEX", "NA_DCOMPLEX", "NA_ROBJ", "NA_NTYPES"]
+  $globals << "na_opencl_kernel2_t #{name}Kernels;" 
   for i in 0...n
     for j in 0...n
       f = true
       for k in funcs
 	if c[i]=~k[0] && c[j]=~k[1]
-          $kernels << "  #{name}Kernels[#{narray_types[i]}][#{narray_types[j]}] = (void*)clCreateKernel(program, \"#{name+c[i]+c[j]}\", &ret);"
+          $kernels << "  #{name}Kernels[#{narray_types[i]}][#{narray_types[j]}] = clCreateKernel(program, \"#{name+c[i]+c[j]}\", &ret);"
 	  f = false
 	  break
 	end
@@ -1268,10 +1274,125 @@ mkopenclpowfuncs('Pow', [
     p1->i = x.r * sin(x.i);
   }"]
 ])
+
+#
+# random
+#
+#$func_body = 
+#  "__kernel void #name#C(__local uint* p, __global char* p1, int i1, int b1, typercl max, __global uint* state, __global int left, __global int initf, __global uint* next)
+#{
+#  GLOBAL_ID
+#  OPERATION
+#}
+#"
+#print <<EOM
+#/*
+#This is based on na_random.c that utilizes MT19937. See na_random.c for the original copyright notice of MT19937.
+#*/
+##define N 624
+##define M 397
+##define MATRIX_A 0x9908b0dfUL   /* constant vector a */
+##define UMASK 0x80000000UL /* most significant w-r bits */
+##define LMASK 0x7fffffffUL /* least significant r bits */
+##define MIXBITS(u,v) ( ((u) & UMASK) | ((v) & LMASK) )
+##define TWIST(u,v) ((MIXBITS(u,v) >> 1) ^ ((v)&1UL ? MATRIX_A : 0UL))
+#
+#inline void
+# next_state()
+#{
+#  int gid1 = get_global_id(1);
+#  int gid1_size = get_global_size(1);
+#  uint *p=state;
+#  int j;
+#
+#  /* if init_genrand() has not been called, */
+#  /* a default initial seed is used         */
+#  if (initf==0) init_genrand(5489UL);
+#
+#  left = N;
+#  next = state;
+#
+#  if (gid1 < N-M+1) // for (j=N-M+1; --j; ++p) 
+#    p[gid1] = p[M] ^ TWIST(p[0], p[1]); // *p = p[M] ^ TWIST(p[0], p[1]);
+#
+#  for (j=M; --j; ++p) 
+#    *p = p[M-N] ^ TWIST(p[0], p[1]);
+#
+#  *p = p[M-N] ^ TWIST(p[0], state[0]);
+#}
+#
+##define genrand(y) \
+#{ if (--left == 0) next_state();\
+#  (y) = *next++;\
+#  (y) ^= ((y) >> 11);\
+#  (y) ^= ((y) << 7) & 0x9d2c5680UL;\
+#  (y) ^= ((y) << 15) & 0xefc60000UL;\
+#  (y) ^= ((y) >> 18); }
+#
+#// #define rand_double(x,y) \
+#//   (((double)((x)>>5)+(double)((y)>>6)*(1.0/67108864.0)) * (1.0/134217728.0))
+#
+##define rand_single(y) \
+#  (float)((y) * (1.0/4294967296.0))
+#
+#inline void n_bits(int a, int* xl)
+#{
+#  int i, x, xu, n=4;
+#  int m;
+#
+#  if (a==0) return 0;
+#  if (a<0) a=-a;
+#
+#  x  = 1<<n;
+#  xu = 1<<(n+1);
+#  *xl = 0;
+#
+#  for (i=n; i>=0; --i) {
+#    m = ~((1<<(x-1))-1);
+#
+#    if (m & a) {
+#      *xl = x;
+#      x += 1<<(i-1);
+#    } else {
+#      xu = x;
+#      x -= 1<<(i-1);
+#    }
+#  }
+#}
+#EOM
+#mkopenclfuncs('Rnd', $opencl_types, $opencl_types,
+# [nil] +
+# ["uint y;
+#  int shift, sign=1;
+#  if ( rmax < 0 ) { sign = -1; }
+#  n_bits(max, &shift);
+#  shift = 32 - shift;
+#
+#  if (max<1) {
+#    *p1 = 0;
+#  } else {
+#    do {
+#      genrand(y);
+#      y >>= shift;
+#    } while (y > max);
+#    *p1 = (typecl)y*sign;
+#  }"]*3 +
+# ["u_int32_t y;
+#  genrand(y);
+#  *p1 = rand_single(y) * rmax;"] +
+# [nil] +
+# ["u_int32_t y;
+#  genrand(y);
+#  p1->r = rand_single(y) * rmax;
+#  p1->i = 0;"] +
+# [nil]*2
+#)
+
 $>.close
 File.open("na_opencl.h","w"){|f|
   f.puts "#define KERNEL_SRC_FILE \"#{ARGV[0]}/na_kernel.cl\""
   f.puts "#define MAX_SOURCE_SIZE (#{File.size('./na_kernel.cl')})"
   f.puts "#define HDRDIR \"-I#{ARGV[0]} -I#{ARGV[1]}\""
   f.puts $kernels.join("\\\n") + "}"
+  f.puts $globals.join("\n")
 }

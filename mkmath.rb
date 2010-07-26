@@ -749,7 +749,7 @@ static void
 
 static VALUE
 #ifdef __OPENCL__
- na_math_func(volatile VALUE self, na_mathfunc_t funcs, na_mathfunc_t kernels)
+ na_math_func(volatile VALUE self, na_mathfunc_t funcs, na_opencl_kernel1_t kernels)
 #else
  na_math_func(volatile VALUE self, na_mathfunc_t funcs)
 #endif
