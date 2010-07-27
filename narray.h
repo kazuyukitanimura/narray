@@ -109,6 +109,7 @@ enum NArray_Types {
 /* global variables */
 extern cl_device_id device_id;
 extern cl_context context;
+/* Function Prototypes */
 void na_opencl_do_IndGenKernel(cl_command_queue, size_t, int, cl_mem, int, int, int);
 void na_opencl_do_SetKernel(cl_command_queue, size_t, int, cl_mem, int, int, cl_mem, int);
 #endif

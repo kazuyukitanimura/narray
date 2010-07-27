@@ -1450,7 +1450,7 @@ static VALUE
 
   na_zero_data(a2);
 #ifdef __OPENCL__
-  na_exec_unary( a2, a1, AddUFuncs[a1->type], NULL );
+  na_exec_unary( a2, a1, AddUFuncs[a1->type], AddUKernels[a1->type] );
 #else
   na_exec_unary( a2, a1, AddUFuncs[a1->type] );
 #endif
