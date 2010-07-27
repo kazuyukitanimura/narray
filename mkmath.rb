@@ -694,7 +694,7 @@ print <<EOM
 
 static void
 #ifdef __OPENCL__
- na_exec_math(struct NARRAY *a1, struct NARRAY *a2, void (*func)(), void* kernel )
+ na_exec_math(struct NARRAY *a1, struct NARRAY *a2, void (*func)(), cl_kernel kernel )
 #else
  na_exec_math(struct NARRAY *a1, struct NARRAY *a2, void (*func)())
 #endif
@@ -717,18 +717,18 @@ static void
     int b2 = 0;
  
     /* set OpenCL kernel arguments */
-    ret = clSetKernelArg((void*)kernel, 0, global_item_size*s1, NULL);
+    ret = clSetKernelArg(kernel, 0, global_item_size*s1, NULL);
 
-    ret = clSetKernelArg((void*)kernel, 1, sizeof(cl_mem), (void *)&buf1);
-    ret = clSetKernelArg((void*)kernel, 2, sizeof(cl_int), (void *)&s1);
-    ret = clSetKernelArg((void*)kernel, 3, sizeof(cl_int), (void *)&b1);
+    ret = clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&buf1);
+    ret = clSetKernelArg(kernel, 2, sizeof(cl_int), (void *)&s1);
+    ret = clSetKernelArg(kernel, 3, sizeof(cl_int), (void *)&b1);
 
-    ret = clSetKernelArg((void*)kernel, 4, sizeof(cl_mem), (void *)&buf2);
-    ret = clSetKernelArg((void*)kernel, 5, sizeof(cl_int), (void *)&s2);
-    ret = clSetKernelArg((void*)kernel, 6, sizeof(cl_int), (void *)&b2);
+    ret = clSetKernelArg(kernel, 4, sizeof(cl_mem), (void *)&buf2);
+    ret = clSetKernelArg(kernel, 5, sizeof(cl_int), (void *)&s2);
+    ret = clSetKernelArg(kernel, 6, sizeof(cl_int), (void *)&b2);
 
     /* execute OpenCL kernel */
-    ret = clEnqueueNDRangeKernel(queue, (void*)kernel, 1, NULL, &global_item_size, NULL, 0, NULL, NULL);
+    ret = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_item_size, NULL, 0, NULL, NULL);
     if (ret != CL_SUCCESS)
       rb_raise(rb_eRuntimeError, "Failed executing kernel \\n");
 
