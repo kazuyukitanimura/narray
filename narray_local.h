@@ -150,7 +150,8 @@ extern na_opencl_kernel1_t acosKernels;
 extern na_opencl_kernel1_t acoshKernels;
 extern na_opencl_kernel1_t atanKernels;
 extern na_opencl_kernel1_t atanhKernels;
-//extern na_opencl_kernel1_t RndKernels;
+extern na_opencl_kernel1_t RndKernels;
+extern cl_kernel init_genrandKernel;
 #endif
 
 /* variables */

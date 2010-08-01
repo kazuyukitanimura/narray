@@ -75,12 +75,6 @@ static u_int32_t state[N]; /* the array for the state vector  */
 static int left = 1;
 static int initf = 0;
 static u_int32_t *next;
-#ifdef __OPENCL__
-cl_mem state_buf;
-cl_mem left_buf;
-cl_mem initf_buf;
-cl_mem next_buf;
-#endif
 
 /* initializes state[N] with a seed */
 static void
@@ -145,6 +139,23 @@ rand_init(seed)
 
     first = 0;
     init_genrand(seed);
+#ifdef __OPENCL__
+    cl_kernel kernel = init_genrandKernel; 
+    cl_int ret;
+    size_t global_item_size = 1;
+    cl_command_queue queue = clCreateCommandQueue(context, device_id, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE , NULL);
+
+    /* set OpenCL kernel arguments */
+    ret = clSetKernelArg(kernel, 0, sizeof(cl_uint), (void *)&(seed));
+
+    /* execute OpenCL kernel */
+    ret = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_item_size, NULL, 0, NULL, NULL);
+    if (ret != CL_SUCCESS)
+      rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
+
+    /* run commands in queue and make sure all commands in queue is done */
+    clFlush(queue); clFinish(queue);
+#endif
     old = saved_seed;
     saved_seed = seed;
 
@@ -399,53 +410,40 @@ static VALUE
 
   GetNArray(self,ary);
 
-#if 0
 #ifdef __OPENCL__
   if (OPENCL_KERNEL(RndKernels[ary->type])) {
     cl_kernel kernel = RndKernels[ary->type]; 
     cl_int ret;
-    size_t global_item_size[2] = {ary->total, (sizeof(state)/sizeof(state[0]))};
+    size_t global_item_size = ary->total;
     cl_command_queue queue = ary->queue;
-    cl_mem buf1 = ary->buffer;
-    int s1 = na_sizeof[ary->type];
-    int b1 = 0;
     u_int8_t rmaxB;
     int16_t rmaxI;
     int32_t rmaxL;
     float rmaxF;
- 
-    /* set OpenCL kernel arguments */
-    ret = clSetKernelArg(kernel, 0, sizeof(state), NULL);
+    char sign=1; 
 
-    ret = clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&buf1);
-    ret = clSetKernelArg(kernel, 2, sizeof(cl_int), (void *)&s1);
-    ret = clSetKernelArg(kernel, 3, sizeof(cl_int), (void *)&b1);
+    /* set OpenCL kernel arguments */
+    ret = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&(ary->buffer));
+    ret = clSetKernelArg(kernel, 1, sizeof(cl_int), (void *)&(na_sizeof[ary->type]));
     switch(ary->type){
       case NA_BYTE:     if ( rmax < 0 ) { rb_raise(rb_eArgError, "rand-max must be positive"); }
                         rmaxB = size_check(rmax,0x100);
-                        ret = clSetKernelArg(kernel, 4, sizeof(cl_uchar), (void *)&rmaxB); break;
-      case NA_SINT:     if ( rmax < 0 ) { rmax = -rmax; }
+                        ret = clSetKernelArg(kernel, 2, sizeof(cl_uchar), (void *)&rmaxB); break;
+      case NA_SINT:     if ( rmax < 0 ) { rmax = -rmax; sign = -1; }
                         rmaxI = size_check(rmax,0x8000);
-                        ret = clSetKernelArg(kernel, 4, sizeof(cl_short), (void *)&rmaxI); break;
-      case NA_LINT:     if ( rmax < 0 ) { rmax = -rmax; }
+                        ret = clSetKernelArg(kernel, 2, sizeof(cl_short), (void *)&rmaxI); break;
+      case NA_LINT:     if ( rmax < 0 ) { rmax = -rmax; sign = -1; }
                         rmaxL = size_check(rmax,0x80000000);
-                        ret = clSetKernelArg(kernel, 4, sizeof(cl_int),   (void *)&rmaxL); break;
+                        ret = clSetKernelArg(kernel, 2, sizeof(cl_int),   (void *)&rmaxL); break;
       case NA_SFLOAT:   rmaxF = (float) rmax;
-                        ret = clSetKernelArg(kernel, 4, sizeof(cl_float), (void *)&rmaxF); break;
+                        ret = clSetKernelArg(kernel, 2, sizeof(cl_float), (void *)&rmaxF); break;
       case NA_SCOMPLEX: rmaxF = (float) rmax;
-                        ret = clSetKernelArg(kernel, 4, sizeof(cl_float), (void *)&rmaxF); break;
+                        ret = clSetKernelArg(kernel, 2, sizeof(cl_float), (void *)&rmaxF); break;
     }
-    cl_mem state_buf = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, sizeof(state), state, NULL);
-    ret = clSetKernelArg(kernel, 5, sizeof(cl_mem), (void *)&state_buf);
-    cl_mem left_buf = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, sizeof(left), &left, NULL);
-    ret = clSetKernelArg(kernel, 6, sizeof(cl_mem), (void *)&left_buf);
-    cl_mem initf_buf = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, sizeof(initf), &initf, NULL);
-    ret = clSetKernelArg(kernel, 7, sizeof(cl_mem), (void *)&initf_buf);
-    cl_mem next_buf = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, sizeof(next), next, NULL);
-    ret = clSetKernelArg(kernel, 8, sizeof(cl_mem), (void *)&next_buf);
+    ret = clSetKernelArg(kernel, 3, sizeof(cl_char), (void *)&sign);
 
     /* execute OpenCL kernel */
-    ret = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_item_size, NULL, 0, NULL, NULL);
+    ret = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_item_size, NULL, 0, NULL, NULL);
     if (ret != CL_SUCCESS)
       rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
 
@@ -453,12 +451,9 @@ static VALUE
     clFlush(queue); clFinish(queue);
   }else {
 #endif
-#endif
   (*RndFuncs[ary->type])( ary->total, ary->ptr, na_sizeof[ary->type], rmax );
-#if 0
 #ifdef __OPENCL__
   }
-#endif
 #endif
 
   return self;

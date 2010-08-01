@@ -34,11 +34,11 @@ def mkopenclsetfuncs(name,op,id,funcs)
           f = k[2]
 	  f = f.
             gsub(/p0->/,"((#{tcl[i]}*)&p0[gid*i1])->").
-            gsub(/p1->/,"((#{tcl[i]}*)&p1[gid*i1+b1])->").
-            gsub(/p2->/,"((#{tcl[j]}*)&p2[gid*i2+b2])->").
+            gsub(/p1->/,"((#{tcl[i]}*)&p1[gid*i1+b1[bid]])->").
+            gsub(/p2->/,"((#{tcl[j]}*)&p2[gid*i2+b2[bid]])->").
             gsub(/\*p0/,"(*(#{tcl[i]}*)&p0[gid*i1])").
-            gsub(/\*p1/,"(*(#{tcl[i]}*)&p1[gid*i1+b1])").
-            gsub(/\*p2/,"(*(#{tcl[j]}*)&p2[gid*i2+b2])").
+            gsub(/\*p1/,"(*(#{tcl[i]}*)&p1[gid*i1+b1[bid]])").
+            gsub(/\*p2/,"(*(#{tcl[j]}*)&p2[gid*i2+b2[bid]])").
             gsub(/#id/,id).
             gsub(/#op/,op).
 	    gsub(/typed/,td[i]).
@@ -46,6 +46,7 @@ def mkopenclsetfuncs(name,op,id,funcs)
 	  puts $func_body.
 	    gsub(/#name/,name).
             sub(/GLOBAL_ID/,'int gid = get_global_id(0);').
+            sub(/BASE_ID/,'int bid = get_global_id(1);').
 	    sub(/OPERATION/,f).
 	    gsub(/#CC/,c[i]+c[j])
 	end
@@ -94,13 +95,13 @@ def mkopenclfuncs(name,t1,t2,func)
     if func[i] != nil && func[i] != "set" && func[i] != "swp"
       f = func[i].
 	gsub(/p0->/,"((#{t1[i]}*)&p0[gid*i1])->").
-	gsub(/p1->/,"((#{t1[i]}*)&p1[gid*i1+b1])->").
-	gsub(/p2->/,"((#{t2[i]}*)&p2[gid*i2+b2])->").
-	gsub(/p3->/,"((#{t2[i]}*)&p3[gid*i3+b3])->").
+	gsub(/p1->/,"((#{t1[i]}*)&p1[gid*i1+b1[bid]])->").
+	gsub(/p2->/,"((#{t2[i]}*)&p2[gid*i2+b2[bid]])->").
+	gsub(/p3->/,"((#{t2[i]}*)&p3[gid*i3+b3[bid]])->").
 	gsub(/\*p0/,"(*(#{t1[i]}*)&p0[gid*i1])").
-	gsub(/\*p1/,"(*(#{t1[i]}*)&p1[gid*i1+b1])").
-	gsub(/\*p2/,"(*(#{t2[i]}*)&p2[gid*i2+b2])").
-	gsub(/\*p3/,"(*(#{t2[i]}*)&p3[gid*i3+b3])").
+	gsub(/\*p1/,"(*(#{t1[i]}*)&p1[gid*i1+b1[bid]])").
+	gsub(/\*p2/,"(*(#{t2[i]}*)&p2[gid*i2+b2[bid]])").
+	gsub(/\*p3/,"(*(#{t2[i]}*)&p3[gid*i3+b3[bid]])").
 	gsub(/type1/,td[i]).
 	gsub(/typecl/,tcl[i]).
 	gsub(/typef/,tr[i]).
@@ -108,6 +109,7 @@ def mkopenclfuncs(name,t1,t2,func)
       puts $func_body.
 	gsub(/#name/,name).
 	sub(/GLOBAL_ID/,'int gid = get_global_id(0);').
+	sub(/BASE_ID/,'int bid = get_global_id(1);').
 	sub(/OPERATION/,f).
 	gsub(/#C/,c[i]).
 	gsub(/typecl/,tcl[i]).
@@ -203,9 +205,10 @@ data = [
   [/[X]/,/[X]/,      "p1->r = p2->r; p1->i = p2->i;"]
 ]
 $func_body = 
-  "__kernel void #name#CC(__local char* p0, __global char* p1, int i1, int b1, __global char* p2, int i2, int b2)
+  "__kernel void #name#CC(__local char* p0, __global char* p1, int i1, __global long* b1, __global char* p2, int i2, __global long* b2)
 {
   GLOBAL_ID
+  BASE_ID
   OPERATION
 }
 "
@@ -217,9 +220,10 @@ mkopenclsetfuncs('Set','','',data)
 #  Unary Funcs
 #
 $func_body = 
-  "__kernel void #name#C(__local char* p0, __global char* p1, int i1, int b1, __global char* p2, int i2, int b2)
+  "__kernel void #name#C(__local char* p0, __global char* p1, int i1, __global long* b1, __global char* p2, int i2, __global long* b2)
 {
   GLOBAL_ID
+  BASE_ID
   OPERATION
 }
 "
@@ -755,7 +759,7 @@ mkopenclfuncs('atanh', $opencl_types, $opencl_types,
 
 # indgen
 $func_body = 
-  "__kernel void #name#C(__global char* p1, int i1, int b1, int p2, int i2, int b2)
+  "__kernel void #name#C(__global char* p1, int i1, int p2, int i2)
 {
   int gid = get_global_id(0);
   OPERATION
@@ -763,49 +767,13 @@ $func_body =
 "
 mkopenclfuncs('IndGen',$opencl_types,[$opencl_types[3]]*8,
  [nil] +
- ["*p1 = p2+gid*i2;"]*4 +
+ ["(*(typecl*)&p1[gid*i1]) = p2+gid*i2;"]*4 +
  [nil] +
- ["p1->r = p2+gid*i2;
-   p1->i = 0;"] +
+ ["((typecl*)&p1[gid*i1])->r = p2+gid*i2;
+  ((typecl*)&p1[gid*i1])->i = 0;"] +
  [nil] +
  [nil]
 )
-
-## reduction for sum
-#$func_body = 
-#  "__kernel void #name#C(__local char* p0, __global char* p1, int i1, int b1, __global char* p2, int i2, int b2)
-#{
-#  int gid = get_global_id(0);
-#  OPERATION
-#}
-#"
-#mkopenclfuncs('RdcU', $opencl_types, $opencl_types,
-# [nil] +
-# ["i1 = i2;
-#  if (gid < get_global_size(0)/2)
-#    *p0 = *p2;
-#  int b2_org = b2;
-#  barrier(CLK_LOCAL_MEM_FENCE);
-#  for (b2 += i2*(get_global_size(0)/2); (b2-b2_org) < get_global_size(0); b2 += i2*((b2-b2_org)/2)) {
-#    if (gid < (b2-b2_org)) {
-#      *p0 += *p2;
-#    }
-#    barrier(CLK_LOCAL_MEM_FENCE);
-#  }
-#  i1 = 0;
-#  if (gid == 0)
-#    *p0 += *p1;
-#  barrier(CLK_LOCAL_MEM_FENCE);
-#  *p1 = *p0;"]*4 + 
-# [nil] +
-# ["p0->r = p1->r + p2->r;
-#  p0->i = p1->i + p2->i;
-#  barrier(CLK_LOCAL_MEM_FENCE);
-#  p1->r = p0->r;
-#  p1->i = p0->i;"] +
-# [nil] +
-# [nil]
-#)
 
 #$func_body = 
 #"static void #name#C(int n, char *p1, int i1, char *p2, int i2)
@@ -917,9 +885,10 @@ mkopenclfuncs('IndGen',$opencl_types,[$opencl_types[3]]*8,
 #   Binary Funcs
 #
 $func_body = 
-  "__kernel void #name#C(__local char* p0, __global char* p1, int i1, int b1, __global char* p2, int i2, int b2, __global char* p3, int i3, int b3)
+  "__kernel void #name#C(__local char* p0, __global char* p1, int i1, __global long* b1, __global char* p2, int i2, __global long* b2, __global char* p3, int i3, __global long* b3)
 {
   GLOBAL_ID
+  BASE_ID
   OPERATION
 }
 "
@@ -1157,13 +1126,13 @@ def mkopenclpowfuncs(name,funcs)
           f = k[2]
 	  f = f.
             gsub(/p0->/,"((#{tcl[i]}*)&p0[gid*i1])->").
-            gsub(/p1->/,"((#{tu}*)&p1[gid*i1+b1])->").
-            gsub(/p2->/,"((#{tcl[i]}*)&p2[gid*i2+b2])->").
-            gsub(/p3->/,"((#{tcl[j]}*)&p3[gid*i3+b3])->").
+            gsub(/p1->/,"((#{tu}*)&p1[gid*i1+b1[bid]])->").
+            gsub(/p2->/,"((#{tcl[i]}*)&p2[gid*i2+b2[bid]])->").
+            gsub(/p3->/,"((#{tcl[j]}*)&p3[gid*i3+b3[bid]])->").
             gsub(/\*p0/,"(*(#{tcl[i]}*)&p0[gid*i1])").
-            gsub(/\*p1/,"(*(#{tu}*)&p1[gid*i1+b1])").
-            gsub(/\*p2/,"(*(#{tcl[i]}*)&p2[gid*i2+b2])").
-            gsub(/\*p3/,"(*(#{tcl[j]}*)&p3[gid*i3+b3])").
+            gsub(/\*p1/,"(*(#{tu}*)&p1[gid*i1+b1[bid]])").
+            gsub(/\*p2/,"(*(#{tcl[i]}*)&p2[gid*i2+b2[bid]])").
+            gsub(/\*p3/,"(*(#{tcl[j]}*)&p3[gid*i3+b3[bid]])").
             gsub(/typecl1/,tu).
             gsub(/typecl2/,tcl[i]).
             gsub(/typecl3/,tcl[j]).
@@ -1171,6 +1140,7 @@ def mkopenclpowfuncs(name,funcs)
 	  puts $func_body.
 	    gsub(/#name/,name).
             sub(/GLOBAL_ID/,'int gid = get_global_id(0);').
+            sub(/BASE_ID/,'int bid = get_global_id(1);').
 	    sub(/OPERATION/,f).
 	    gsub(/#CC/,c[i]+c[j])
 	end
@@ -1199,9 +1169,10 @@ def mkopenclpowfuncs(name,funcs)
 end
 
 $func_body = 
-  "__kernel void #name#CC(__local char* p0, __global char* p1, int i1, int b1, __global char* p2, int i2, int b2, __global char* p3, int i3, int b3)
+  "__kernel void #name#CC(__local char* p0, __global char* p1, int i1, __global long* b1, __global char* p2, int i2, __global long* b2, __global char* p3, int i3, __global long* b3)
 {
   GLOBAL_ID
+  BASE_ID
   OPERATION
 }
 
@@ -1278,115 +1249,100 @@ mkopenclpowfuncs('Pow', [
 #
 # random
 #
-#$func_body = 
-#  "__kernel void #name#C(__local uint* p, __global char* p1, int i1, int b1, typercl max, __global uint* state, __global int left, __global int initf, __global uint* next)
-#{
-#  GLOBAL_ID
-#  OPERATION
-#}
-#"
-#print <<EOM
-#/*
-#This is based on na_random.c that utilizes MT19937. See na_random.c for the original copyright notice of MT19937.
-#*/
-##define N 624
-##define M 397
-##define MATRIX_A 0x9908b0dfUL   /* constant vector a */
-##define UMASK 0x80000000UL /* most significant w-r bits */
-##define LMASK 0x7fffffffUL /* least significant r bits */
-##define MIXBITS(u,v) ( ((u) & UMASK) | ((v) & LMASK) )
-##define TWIST(u,v) ((MIXBITS(u,v) >> 1) ^ ((v)&1UL ? MATRIX_A : 0UL))
-#
-#inline void
-# next_state()
-#{
-#  int gid1 = get_global_id(1);
-#  int gid1_size = get_global_size(1);
-#  uint *p=state;
-#  int j;
-#
-#  /* if init_genrand() has not been called, */
-#  /* a default initial seed is used         */
-#  if (initf==0) init_genrand(5489UL);
-#
-#  left = N;
-#  next = state;
-#
-#  if (gid1 < N-M+1) // for (j=N-M+1; --j; ++p) 
-#    p[gid1] = p[M] ^ TWIST(p[0], p[1]); // *p = p[M] ^ TWIST(p[0], p[1]);
-#
-#  for (j=M; --j; ++p) 
-#    *p = p[M-N] ^ TWIST(p[0], p[1]);
-#
-#  *p = p[M-N] ^ TWIST(p[0], state[0]);
-#}
-#
-##define genrand(y) \
-#{ if (--left == 0) next_state();\
-#  (y) = *next++;\
-#  (y) ^= ((y) >> 11);\
-#  (y) ^= ((y) << 7) & 0x9d2c5680UL;\
-#  (y) ^= ((y) << 15) & 0xefc60000UL;\
-#  (y) ^= ((y) >> 18); }
-#
-#// #define rand_double(x,y) \
-#//   (((double)((x)>>5)+(double)((y)>>6)*(1.0/67108864.0)) * (1.0/134217728.0))
-#
-##define rand_single(y) \
-#  (float)((y) * (1.0/4294967296.0))
-#
-#inline void n_bits(int a, int* xl)
-#{
-#  int i, x, xu, n=4;
-#  int m;
-#
-#  if (a==0) return 0;
-#  if (a<0) a=-a;
-#
-#  x  = 1<<n;
-#  xu = 1<<(n+1);
-#  *xl = 0;
-#
-#  for (i=n; i>=0; --i) {
-#    m = ~((1<<(x-1))-1);
-#
-#    if (m & a) {
-#      *xl = x;
-#      x += 1<<(i-1);
-#    } else {
-#      xu = x;
-#      x -= 1<<(i-1);
-#    }
-#  }
-#}
-#EOM
-#mkopenclfuncs('Rnd', $opencl_types, $opencl_types,
-# [nil] +
-# ["uint y;
-#  int shift, sign=1;
-#  if ( rmax < 0 ) { sign = -1; }
-#  n_bits(max, &shift);
-#  shift = 32 - shift;
-#
-#  if (max<1) {
-#    *p1 = 0;
-#  } else {
-#    do {
-#      genrand(y);
-#      y >>= shift;
-#    } while (y > max);
-#    *p1 = (typecl)y*sign;
-#  }"]*3 +
-# ["u_int32_t y;
-#  genrand(y);
-#  *p1 = rand_single(y) * rmax;"] +
-# [nil] +
-# ["u_int32_t y;
-#  genrand(y);
-#  p1->r = rand_single(y) * rmax;
-#  p1->i = 0;"] +
-# [nil]*2
-#)
+$func_body = 
+  "__kernel void #name#C(__global char* p1, int i1, typercl rmax, char sign)
+{
+  GLOBAL_ID
+  OPERATION
+}
+"
+print <<EOM
+/* This is based on na_random.c that utilizes MT19937. See na_random.c for the original copyright notice of MT19937. */
+#define N 624
+#define M 397
+#define MATRIX_A 0x9908b0dfUL   /* constant vector a */
+#define UMASK 0x80000000UL /* most significant w-r bits */
+#define LMASK 0x7fffffffUL /* least significant r bits */
+#define MIXBITS(u,v) ( ((u) & UMASK) | ((v) & LMASK) )
+#define TWIST(u,v) ((MIXBITS(u,v) >> 1) ^ ((v)&1UL ? MATRIX_A : 0UL))
+
+global uint state[N] = {#{state=[5489];1.upto(623){|j|state<<((1812433253*(state[-1]^(state[-1]>>30))+j)&0x0ffffffff)};state.join(',')}}; /* the default initial seed array for the state vector */
+global int left = N;
+
+/* initializes state[N] with a seed */
+__kernel void init_genrand(uint s)
+{
+  int j;
+  state[0]= s & 0xffffffffUL;
+  for (j=1; j<N; ++j) {
+    state[j] = (1812433253UL * (state[j-1] ^ (state[j-1] >> 30)) + j); 
+    /* See Knuth TAOCP Vol2. 3rd Ed. P.106 for multiplier. */
+    /* In the previous versions, MSBs of the seed affect   */
+    /* only MSBs of the array state[].                        */
+    /* 2002/01/09 modified by Makoto Matsumoto             */
+    state[j] &= 0xffffffffUL;  /* for >32 bit machines */
+  }
+  left = N;
+}
+
+#define genrand(y) \\
+{ int j = N - ((left==0)? (left=N) : (left--));\\
+  if (j < N-M) {\\
+    (y) = state[j] = state[j+M] ^ TWIST(state[j], state[j+1]);\\
+  }else if (j < N-1) {\\
+    (y) = state[j] = state[j+M-N] ^ TWIST(state[j], state[j+1]);\\
+  }else {/* j==N-1 */\\
+    (y) = state[j] = state[j+M-N] ^ TWIST(state[j], state[0]);\\
+  }\\
+  (y) ^= ((y) >> 11);\\
+  (y) ^= ((y) << 7) & 0x9d2c5680UL;\\
+  (y) ^= ((y) << 15) & 0xefc60000UL;\\
+  (y) ^= ((y) >> 18); }
+
+// #define rand_double(x,y) \\
+//   (((double)((x)>>5)+(double)((y)>>6)*(1.0/67108864.0)) * (1.0/134217728.0))
+
+#define rand_single(y) \\
+  ((float)(y) * (1.0/4294967296.0))
+
+#define n_bits(a,xl) \\
+{ int x=0x10, bitwidth=32;\\
+  if ((~((1<<(x-1))-1)) & (a)) { (xl) = bitwidth - x; x += 0x08; } else { x -= 0x08; }\\
+  if ((~((1<<(x-1))-1)) & (a)) { (xl) = bitwidth - x; x += 0x04; } else { x -= 0x04; }\\
+  if ((~((1<<(x-1))-1)) & (a)) { (xl) = bitwidth - x; x += 0x02; } else { x -= 0x02; }\\
+  if ((~((1<<(x-1))-1)) & (a)) { (xl) = bitwidth - x; x += 0x01; } else { x -= 0x01; }\\
+  if ((~((1<<(x-1))-1)) & (a)) { (xl) = bitwidth - x; }\\
+}
+EOM
+
+$kernels << "  init_genrandKernel = clCreateKernel(program, \"init_genrand\", &ret);"
+$globals << "cl_kernel init_genrandKernel;" 
+
+mkopenclfuncs('Rnd', $opencl_types, $opencl_types,
+ [nil] +
+ ["uint y;
+  int shift;
+
+  if (rmax<1) {
+    (*(typecl*)&p1[gid*i1]) = 0;
+  } else {
+    n_bits((int)rmax,shift);
+    do {
+      genrand(y);
+      y >>= shift;
+    } while (y > rmax);
+    (*(typecl*)&p1[gid*i1]) = (typecl)y*sign;
+  }"]*3 +
+ ["uint y;
+  genrand(y);
+  (*(typecl*)&p1[gid*i1]) = rand_single(y) * rmax;"] +
+ [nil] +
+ ["uint y;
+  genrand(y);
+  ((typecl*)&p1[gid*i1])->r = rand_single(y) * rmax;
+  ((typecl*)&p1[gid*i1])->i = 0;"] +
+ [nil]*2
+)
 
 $>.close
 File.open("na_opencl.h","w"){|f|

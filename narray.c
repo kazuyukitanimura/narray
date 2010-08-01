@@ -102,6 +102,11 @@ static void
 static void
  na_free(struct NARRAY* ary)
 {
+#ifdef __OPENCL__
+  /* releasing OpenCL objects */
+  if ( ary->total > 0 ) clReleaseMemObject(ary->buffer);
+  clReleaseCommandQueue(ary->queue);
+#endif
   if ( ary->total > 0 ) {
     if (ary->ref == Qnil || ary->ref == Qtrue) {  /* non reference */
       xfree(ary->ptr); 
@@ -112,14 +117,6 @@ static void
     ary->ptr = NULL;
 #endif
   }
-#ifdef __OPENCL__
-  /* releasing OpenCL objects */
-  if ( ary->total > 0 )
-    clReleaseMemObject(ary->buffer);
-  ary->buffer = NULL;
-  clReleaseCommandQueue(ary->queue);
-  ary->queue = NULL;
-#endif
   xfree(ary);
 }
 
