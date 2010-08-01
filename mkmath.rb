@@ -709,31 +709,32 @@ static void
 #ifdef __OPENCL__
   if (OPENCL_KERNEL(kernel)) {
     cl_int ret;
-    size_t global_item_size = a1->total;
+    size_t global_item_size[] = {a1->total, 1};
+    size_t *b1 = ALLOCA_N(size_t,global_item_size[1]);b1[0]=0;
+    size_t *b2 = ALLOCA_N(size_t,global_item_size[1]);b2[0]=0;
     cl_command_queue queue = a1->queue;
     cl_mem buf1 = a1->buffer;
-    int b1 = 0;
     cl_mem buf2 = a2->buffer;
-    int b2 = 0;
- 
-    /* set OpenCL kernel arguments */
-    ret = clSetKernelArg(kernel, 0, global_item_size*s1, NULL);
 
+    cl_mem bb1 = clCreateBuffer(context, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, global_item_size[1]*sizeof(b1), b1, NULL);
+    cl_mem bb2 = clCreateBuffer(context, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, global_item_size[1]*sizeof(b2), b2, NULL);
+    /* set OpenCL kernel arguments */
+    ret = clSetKernelArg(kernel, 0, global_item_size[0]*s1, NULL);
     ret = clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&buf1);
     ret = clSetKernelArg(kernel, 2, sizeof(cl_int), (void *)&s1);
-    ret = clSetKernelArg(kernel, 3, sizeof(cl_int), (void *)&b1);
-
+    ret = clSetKernelArg(kernel, 3, sizeof(cl_mem), (void *)&bb1);
     ret = clSetKernelArg(kernel, 4, sizeof(cl_mem), (void *)&buf2);
     ret = clSetKernelArg(kernel, 5, sizeof(cl_int), (void *)&s2);
-    ret = clSetKernelArg(kernel, 6, sizeof(cl_int), (void *)&b2);
+    ret = clSetKernelArg(kernel, 6, sizeof(cl_mem), (void *)&bb2);
 
     /* execute OpenCL kernel */
-    ret = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_item_size, NULL, 0, NULL, NULL);
+    ret = clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global_item_size, NULL, 0, NULL, NULL);
     if (ret != CL_SUCCESS)
       rb_raise(rb_eRuntimeError, "Failed executing kernel \\n");
 
     /* run commands in queue and make sure all commands in queue is done */
     clFlush(queue); clFinish(queue);
+    clReleaseMemObject(bb1);clReleaseMemObject(bb2);
   }else {
 #endif
   for (i=a1->total; i ; i--) {
