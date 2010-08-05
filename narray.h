@@ -103,10 +103,14 @@ enum NArray_Types {
 #endif
 
 #define OPENCL_KERNEL(k) ((k) != NULL)
+#define MAX_DIV(x,y) for (;;) {if ( (x) % (y) == 0) break; --(y);}
 
 /* global variables */
 extern cl_device_id device_id;
 extern cl_context context;
+//extern size_t work_item_sizes[3];
+//extern size_t work_group_size;
+extern cl_uint compute_unit;
 /* Function Prototypes */
 void na_opencl_do_IndGenKernel(cl_command_queue, size_t, int, cl_mem, int, int, int);
 void na_opencl_do_SetKernel(cl_command_queue, size_t, int, cl_mem, int, int, cl_mem, int);

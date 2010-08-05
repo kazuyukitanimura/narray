@@ -414,7 +414,6 @@ static VALUE
   if (OPENCL_KERNEL(RndKernels[ary->type])) {
     cl_kernel kernel = RndKernels[ary->type]; 
     cl_int ret;
-    size_t global_item_size = ary->total;
     cl_command_queue queue = ary->queue;
     u_int8_t rmaxB;
     int16_t rmaxI;
@@ -443,7 +442,7 @@ static VALUE
     ret = clSetKernelArg(kernel, 3, sizeof(cl_char), (void *)&sign);
 
     /* execute OpenCL kernel */
-    ret = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_item_size, NULL, 0, NULL, NULL);
+    ret = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &(ary->total), NULL, 0, NULL, NULL);
     if (ret != CL_SUCCESS)
       rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
 
