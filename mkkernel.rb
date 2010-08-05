@@ -138,6 +138,56 @@ def mkopenclfuncs(name,t1,t2,func)
   #print m.join(", ")+" };\n"
 end
 
+def mkopenclnmathfuncs(name,t1,t2,func)
+
+  print "
+/* ------------------------- #{name} --------------------------- */\n"
+  c   = $type_codes
+  td  = $data_types
+  tr  = $real_types
+  tcl = $opencl_types
+  trcl= $realopencl_types
+
+  for i in 0...c.size
+    if func[i] != nil
+      f = func[i].
+	gsub(/p0->/,"((#{t1[i]}*)&p0[gid*i1])->").
+	gsub(/p1->/,"((#{t1[i]}*)&p1[gid*i1])->").
+	gsub(/p2->/,"((#{t2[i]}*)&p2[gid*i2])->").
+	gsub(/p3->/,"((#{t2[i]}*)&p3[gid*i3])->").
+	gsub(/\*p0/,"(*(#{t1[i]}*)&p0[gid*i1])").
+	gsub(/\*p1/,"(*(#{t1[i]}*)&p1[gid*i1])").
+	gsub(/\*p2/,"(*(#{t2[i]}*)&p2[gid*i2])").
+	gsub(/\*p3/,"(*(#{t2[i]}*)&p3[gid*i3])").
+	gsub(/type1/,td[i]).
+	gsub(/typecl/,tcl[i]).
+	gsub(/typef/,tr[i]).
+	gsub(/typercl/,trcl[i])
+      puts $func_body.
+	gsub(/#name/,name).
+	sub(/GLOBAL_ID/,'int gid = get_global_id(0);').
+	sub(/OPERATION/,f).
+	gsub(/#C/,c[i]).
+	gsub(/typecl/,tcl[i]).
+	gsub(/typercl/,trcl[i])
+    end
+  end
+  # Function Array
+  narray_types = ["NA_NONE", "NA_BYTE", "NA_SINT", "NA_LINT", "NA_SFLOAT", "NA_DFLOAT", "NA_SCOMPLEX", "NA_DCOMPLEX", "NA_ROBJ", "NA_NTYPES"]
+  $globals << "na_opencl_kernel1_t #{name}Kernels;" 
+  for i in 0...c.size
+    if func[i] == nil
+      $kernels << "  #{name}Kernels[#{narray_types[i]}] = NULL;"
+    elsif func[i]=='swp'
+      $kernels << "  #{name}Kernels[#{narray_types[i]}] = SwpKernels[#{narray_types[i]}];"
+    elsif func[i]=='set'
+      $kernels << "  #{name}Kernels[#{narray_types[i]}] = SetKernels[#{narray_types[i]}][#{narray_types[i]}];"
+    else
+      $kernels << "  #{name}Kernels[#{narray_types[i]}] = clCreateKernel(program, \"#{name+c[i]}\", &ret);"
+    end
+  end
+end
+
 
 print <<EOM
 /*
@@ -487,10 +537,35 @@ mkopenclfuncs('Rcp', $opencl_types, $opencl_types,
  [nil]*2
 )
 
+#mksortfuncs('Sort', $opencl_types, $opencl_types,
+# [nil] +
+# ["
+#{ if (*p1 > *p2) return 1;
+#  if (*p1 < *p2) return -1;
+#  return 0; }"]*5 +
+# [nil]*3
+#)
+#
+#mksortfuncs('SortIdx', $opencl_types, $opencl_types,
+# [nil] +
+# ["
+#{ if (**p1 > **p2) return 1;
+#  if (**p1 < **p2) return -1;
+#  return 0; }"]*5 +
+# [nil]*3
+#)
+
 #
 # NMath Operations
 #
-mkopenclfuncs('sqrt', $opencl_types, $opencl_types,
+$func_body = 
+  "__kernel void #name#C(__global char* p1, int i1, __global char* p2, int i2)
+{
+  GLOBAL_ID
+  OPERATION
+}
+"
+mkopenclnmathfuncs('sqrt', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = sqrt*p2;"] +
  [nil] +
@@ -507,7 +582,7 @@ mkopenclfuncs('sqrt', $opencl_types, $opencl_types,
  [nil]*2
 )
 
-mkopenclfuncs('sin', $opencl_types, $opencl_types,
+mkopenclnmathfuncs('sin', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = sin*p2;"] +
  [nil] +
@@ -516,7 +591,7 @@ mkopenclfuncs('sin', $opencl_types, $opencl_types,
  [nil]*2
 )
 
-mkopenclfuncs('cos', $opencl_types, $opencl_types,
+mkopenclnmathfuncs('cos', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = cos*p2;"] +
  [nil] +
@@ -525,7 +600,7 @@ mkopenclfuncs('cos', $opencl_types, $opencl_types,
  [nil]*2
 )
 
-mkopenclfuncs('tan', $opencl_types, $opencl_types,
+mkopenclnmathfuncs('tan', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = tan*p2;"] +
  [nil] +
@@ -538,7 +613,7 @@ mkopenclfuncs('tan', $opencl_types, $opencl_types,
  [nil]*2
 )
 
-mkopenclfuncs('sinh', $opencl_types, $opencl_types,
+mkopenclnmathfuncs('sinh', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = sinh*p2;"] +
  [nil] +
@@ -547,7 +622,7 @@ mkopenclfuncs('sinh', $opencl_types, $opencl_types,
  [nil]*2
 )
 
-mkopenclfuncs('cosh', $opencl_types, $opencl_types,
+mkopenclnmathfuncs('cosh', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = cosh*p2;"] +
  [nil] +
@@ -556,7 +631,7 @@ mkopenclfuncs('cosh', $opencl_types, $opencl_types,
  [nil]*2
 )
 
-mkopenclfuncs('tanh', $opencl_types, $opencl_types,
+mkopenclnmathfuncs('tanh', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = tanh*p2;"] +
  [nil] +
@@ -569,7 +644,7 @@ mkopenclfuncs('tanh', $opencl_types, $opencl_types,
  [nil]*2
 )
 
-mkopenclfuncs('exp', $opencl_types, $opencl_types,
+mkopenclnmathfuncs('exp', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = exp*p2;"] +
  [nil] +
@@ -579,7 +654,7 @@ mkopenclfuncs('exp', $opencl_types, $opencl_types,
  [nil]*2
 )
 
-mkopenclfuncs('log', $opencl_types, $opencl_types,
+mkopenclnmathfuncs('log', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = log*p2;"] +
  [nil] +
@@ -589,7 +664,7 @@ mkopenclfuncs('log', $opencl_types, $opencl_types,
  [nil]*2
 )
 
-mkopenclfuncs('log10', $opencl_types, $opencl_types,
+mkopenclnmathfuncs('log10', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = log10*p2;"] +
  [nil] +
@@ -599,7 +674,7 @@ mkopenclfuncs('log10', $opencl_types, $opencl_types,
  [nil]*2
 )
 
-mkopenclfuncs('log2', $opencl_types, $opencl_types,
+mkopenclnmathfuncs('log2', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = log2*p2;"] +
  [nil] +
@@ -609,7 +684,7 @@ mkopenclfuncs('log2', $opencl_types, $opencl_types,
  [nil]*2
 )
 
-mkopenclfuncs('asin', $opencl_types, $opencl_types,
+mkopenclnmathfuncs('asin', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = asin*p2;"] +
  [nil] +
@@ -634,7 +709,7 @@ mkopenclfuncs('asin', $opencl_types, $opencl_types,
  [nil]*2
 )
 
-mkopenclfuncs('asinh', $opencl_types, $opencl_types,
+mkopenclnmathfuncs('asinh', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = asinh*p2;"] +
  [nil] +
@@ -659,7 +734,7 @@ mkopenclfuncs('asinh', $opencl_types, $opencl_types,
  [nil]*2
 )
 
-mkopenclfuncs('acos', $opencl_types, $opencl_types,
+mkopenclnmathfuncs('acos', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = acos*p2;"] +
  [nil] +
@@ -684,7 +759,7 @@ mkopenclfuncs('acos', $opencl_types, $opencl_types,
  [nil]*2
 )
 
-mkopenclfuncs('acosh', $opencl_types, $opencl_types,
+mkopenclnmathfuncs('acosh', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = acosh*p2;"] +
  [nil] +
@@ -709,7 +784,7 @@ mkopenclfuncs('acosh', $opencl_types, $opencl_types,
  [nil]*2
 )
 
-mkopenclfuncs('atan', $opencl_types, $opencl_types,
+mkopenclnmathfuncs('atan', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = atan*p2;"] +
  [nil] +
@@ -724,7 +799,7 @@ mkopenclfuncs('atan', $opencl_types, $opencl_types,
  [nil]*2
 )
 
-mkopenclfuncs('atanh', $opencl_types, $opencl_types,
+mkopenclnmathfuncs('atanh', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = atanh*p2;"] +
  [nil] +
@@ -739,38 +814,20 @@ mkopenclfuncs('atanh', $opencl_types, $opencl_types,
  [nil]*2
 )
 
-#mksortfuncs('Sort', $opencl_types, $opencl_types,
-# [nil] +
-# ["
-#{ if (*p1 > *p2) return 1;
-#  if (*p1 < *p2) return -1;
-#  return 0; }"]*5 +
-# [nil]*3
-#)
-#
-#mksortfuncs('SortIdx', $opencl_types, $opencl_types,
-# [nil] +
-# ["
-#{ if (**p1 > **p2) return 1;
-#  if (**p1 < **p2) return -1;
-#  return 0; }"]*5 +
-# [nil]*3
-#)
-
 # indgen
 $func_body = 
   "__kernel void #name#C(__global char* p1, int i1, int p2, int i2)
 {
-  int gid = get_global_id(0);
+  GLOBAL_ID
   OPERATION
 }
 "
-mkopenclfuncs('IndGen',$opencl_types,[$opencl_types[3]]*8,
+mkopenclnmathfuncs('IndGen',$opencl_types,[$opencl_types[3]]*8,
  [nil] +
- ["(*(typecl*)&p1[gid*i1]) = p2+gid*i2;"]*4 +
+ ["*p1 = p2+gid*i2;"]*4 +
  [nil] +
- ["((typecl*)&p1[gid*i1])->r = p2+gid*i2;
-  ((typecl*)&p1[gid*i1])->i = 0;"] +
+ ["p1->r = p2+gid*i2;
+  p1->i = 0;"] +
  [nil] +
  [nil]
 )
