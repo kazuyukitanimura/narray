@@ -103,7 +103,7 @@ enum NArray_Types {
 #endif
 
 #define OPENCL_KERNEL(k) ((k) != NULL)
-#define MAX_DIV(x,y) for (;;) {if ( (x) % (y) == 0) break; --(y);}
+#define MAX_DIV(x,y) {for (;;) {if ( (x) % (y) == 0) break; --(y);} (y) = (x) / (y);}
 
 /* global variables */
 extern cl_device_id device_id;

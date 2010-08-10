@@ -154,7 +154,7 @@ rand_init(seed)
       rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
 
     /* run commands in queue and make sure all commands in queue is done */
-    clFlush(queue); clFinish(queue);
+    clFinish(queue);
 #endif
     old = saved_seed;
     saved_seed = seed;
@@ -442,12 +442,12 @@ static VALUE
     ret = clSetKernelArg(kernel, 3, sizeof(cl_char), (void *)&sign);
 
     /* execute OpenCL kernel */
-    ret = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &(ary->total), NULL, 0, NULL, NULL);
+    ret = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, (size_t *)&(ary->total), NULL, 0, NULL, NULL);
     if (ret != CL_SUCCESS)
       rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
 
     /* run commands in queue and make sure all commands in queue is done */
-    clFlush(queue); clFinish(queue);
+    clFinish(queue);
   }else {
 #endif
   (*RndFuncs[ary->type])( ary->total, ary->ptr, na_sizeof[ary->type], rmax );

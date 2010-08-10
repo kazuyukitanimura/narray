@@ -40,7 +40,7 @@ void
   if (ret != CL_SUCCESS) rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
 
   /* run commands in queue and make sure all commands in queue is done */
-  clFlush(queue); clFinish(queue);
+  clFinish(queue);
 }
 
 static void
@@ -64,7 +64,7 @@ static void
   if (ret != CL_SUCCESS) rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
 
   /* run commands in queue and make sure all commands in queue is done */
-  clFlush(queue); clFinish(queue);
+  clFinish(queue);
   clReleaseMemObject(bb1);clReleaseMemObject(bb2);
 }
 
@@ -96,10 +96,10 @@ void
   int j = nd;
   size_t global_item_sizes[] = {s2[0].n, ((j>1)?0:1)};
   while(j>1){--j;global_item_sizes[1]+=s2[j].n;}j=0;
-  size_t local_item_sizes[] = {compute_unit, 1};
+  size_t local_item_sizes[] = {compute_unit, global_item_sizes[1]};
   MAX_DIV(global_item_sizes[0], local_item_sizes[0]);
-  local_item_sizes[1] = NA_MAX(local_item_sizes[1], (compute_unit/local_item_sizes[0]));
-  if (local_item_sizes[1] > 1) MAX_DIV(global_item_sizes[1], local_item_sizes[1]);
+  local_item_sizes[1] = compute_unit / (global_item_sizes[0]/local_item_sizes[0]);
+  MAX_DIV(global_item_sizes[1], local_item_sizes[1]);
   size_t *b1 = ALLOCA_N(size_t,global_item_sizes[1]);
   size_t *b2 = ALLOCA_N(size_t,global_item_sizes[1]);
   cl_int ret;
@@ -150,10 +150,10 @@ void
   int j = nd;
   size_t global_item_sizes[] = {s2[0].n, ((j>1)?0:1)};
   while(j>1){--j;global_item_sizes[1]+=s2[j].n;}j=0;
-  size_t local_item_sizes[] = {compute_unit, 1};
+  size_t local_item_sizes[] = {compute_unit, global_item_sizes[1]};
   MAX_DIV(global_item_sizes[0], local_item_sizes[0]);
-  local_item_sizes[1] = NA_MAX(local_item_sizes[1], (compute_unit/local_item_sizes[0]));
-  if (local_item_sizes[1] > 1) MAX_DIV(global_item_sizes[1], local_item_sizes[1]);
+  local_item_sizes[1] = compute_unit / (global_item_sizes[0]/local_item_sizes[0]);
+  MAX_DIV(global_item_sizes[1], local_item_sizes[1]);
   size_t *b1 = ALLOCA_N(size_t,global_item_sizes[1]);
   size_t *b2 = ALLOCA_N(size_t,global_item_sizes[1]);
   size_t *b3 = ALLOCA_N(size_t,global_item_sizes[1]);
@@ -199,7 +199,7 @@ void
         if (ret != CL_SUCCESS) rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
 
         /* run commands in queue and make sure all commands in queue is done */
-        clFlush(queue); clFinish(queue);
+        clFinish(queue);
         clReleaseMemObject(bb1);clReleaseMemObject(bb2);clReleaseMemObject(bb3);
 ///////////////////////////////////////////////////
         return;
