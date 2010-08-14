@@ -111,9 +111,10 @@ extern cl_context context;
 //extern size_t work_item_sizes[3];
 //extern size_t work_group_size;
 extern cl_uint compute_unit;
+extern size_t global_item_size_, local_item_size_;
 /* Function Prototypes */
-void na_opencl_do_IndGenKernel(cl_command_queue, size_t, int, cl_mem, int, int, int);
-void na_opencl_do_SetKernel(cl_command_queue, size_t, int, cl_mem, int, int, cl_mem, int);
+void na_opencl_do_IndGenKernel(cl_command_queue, int, int, cl_mem, int, int, int);
+void na_opencl_do_SetKernel(cl_command_queue, int, int, cl_mem, int, int, cl_mem, int);
 #endif
 
 /* struct for Numerical Array */

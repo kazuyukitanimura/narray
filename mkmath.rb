@@ -708,22 +708,20 @@ static void
   p2 = a2->ptr;
 #ifdef __OPENCL__
   if (OPENCL_KERNEL(kernel)) {
-    cl_int ret;
+    int argn = 0;
     cl_command_queue queue = a1->queue;
     cl_mem buf1 = a1->buffer;
     cl_mem buf2 = a2->buffer;
-    size_t local_item_size = compute_unit;
-    MAX_DIV(a1->total, local_item_size);
 
     /* set OpenCL kernel arguments */
-    ret = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&buf1);
-    ret = clSetKernelArg(kernel, 1, sizeof(cl_int), (void *)&s1);
-    ret = clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *)&buf2);
-    ret = clSetKernelArg(kernel, 3, sizeof(cl_int), (void *)&s2);
+    clSetKernelArg(kernel, argn++, sizeof(cl_int), (void *)&(a1->total));
+    clSetKernelArg(kernel, argn++, sizeof(cl_mem), (void *)&buf1);
+    clSetKernelArg(kernel, argn++, sizeof(cl_int), (void *)&s1);
+    clSetKernelArg(kernel, argn++, sizeof(cl_mem), (void *)&buf2);
+    clSetKernelArg(kernel, argn++, sizeof(cl_int), (void *)&s2);
 
     /* execute OpenCL kernel */
-    ret = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, (size_t *)&(a1->total), &local_item_size, 0, NULL, NULL);
-    if (ret != CL_SUCCESS) rb_raise(rb_eRuntimeError, "Failed executing kernel \\n");
+    if (clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_item_size_, &local_item_size_, 0, NULL, NULL) != CL_SUCCESS) rb_raise(rb_eRuntimeError, "Failed executing kernel \\n");
 
     /* run commands in queue and make sure all commands in queue is done */
     clFinish(queue);

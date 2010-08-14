@@ -164,7 +164,7 @@ struct NARRAY*
 #ifdef __OPENCL__
   /* create OpenCL command queue */
   //ary->queue = clCreateCommandQueue(context, device_id, 0, NULL);
-  ary->queue = clCreateCommandQueue(context, device_id, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE , NULL);
+  ary->queue = clCreateCommandQueue(context, device_id, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE|CL_QUEUE_PROFILING_ENABLE, NULL);
   if ( ary->total > 0 ) {
     ary->buffer = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, na_sizeof[type]*total, ary->ptr, NULL);
   }else {
