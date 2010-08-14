@@ -33,20 +33,16 @@ def mkopenclsetfuncs(name,op,id,funcs)
 	if c[i]=~k[0] && c[j]=~k[1]
           f = k[2]
 	  f = f.
-            gsub(/p0->/,"((#{tcl[i]}*)&p0[gid*i1])->").
-            gsub(/p1->/,"((#{tcl[i]}*)&p1[gid*i1+b1[bid]])->").
-            gsub(/p2->/,"((#{tcl[j]}*)&p2[gid*i2+b2[bid]])->").
-            gsub(/\*p0/,"(*(#{tcl[i]}*)&p0[gid*i1])").
-            gsub(/\*p1/,"(*(#{tcl[i]}*)&p1[gid*i1+b1[bid]])").
-            gsub(/\*p2/,"(*(#{tcl[j]}*)&p2[gid*i2+b2[bid]])").
+            gsub(/p1->/,"((#{tcl[i]}*)pp1)->").
+            gsub(/p2->/,"((#{tcl[j]}*)pp2)->").
+            gsub(/\*p1/,"(*(#{tcl[i]}*)pp1)").
+            gsub(/\*p2/,"(*(#{tcl[j]}*)pp2)").
             gsub(/#id/,id).
             gsub(/#op/,op).
 	    gsub(/typed/,td[i]).
             gsub(/typef/,tr[i])
 	  puts $func_body.
 	    gsub(/#name/,name).
-            sub(/GLOBAL_ID/,'int gid = get_global_id(0);').
-            sub(/BASE_ID/,'int bid = get_global_id(1);').
 	    sub(/OPERATION/,f).
 	    gsub(/#CC/,c[i]+c[j])
 	end
@@ -56,29 +52,22 @@ def mkopenclsetfuncs(name,op,id,funcs)
 
   # function pointer array
   narray_types = ["NA_NONE", "NA_BYTE", "NA_SINT", "NA_LINT", "NA_SFLOAT", "NA_DFLOAT", "NA_SCOMPLEX", "NA_DCOMPLEX", "NA_ROBJ", "NA_NTYPES"]
-  #print "\nna_setfunc_t "+name+"Funcs = {\n"
   $globals << "na_opencl_kernel2_t #{name}Kernels;" 
-  #m = []
   for i in 0...n
-    #l = []
     for j in 0...n
       f = true
       for k in funcs
 	if c[i]=~k[0] && c[j]=~k[1]
-	  #l += [name+c[i]+c[j]]
           $kernels << "  #{name}Kernels[#{narray_types[i]}][#{narray_types[j]}] = clCreateKernel(program, \"#{name+c[i]+c[j]}\", &ret);"
 	  f = false
 	  break
 	end
       end
       if f
-        #l += ['TpErr']
         $kernels << "  #{name}Kernels[#{narray_types[i]}][#{narray_types[j]}] = NULL;"
       end
     end
-    #m += ['  { '+l.join(', ')+' }']
   end
-  #print m.join(",\n")+"\n};\n"
 end
 
 def mkopenclfuncs(name,t1,t2,func)
@@ -94,78 +83,18 @@ def mkopenclfuncs(name,t1,t2,func)
   for i in 0...c.size
     if func[i] != nil && func[i] != "set" && func[i] != "swp"
       f = func[i].
-	gsub(/p0->/,"((#{t1[i]}*)&p0[gid*i1])->").
-	gsub(/p1->/,"((#{t1[i]}*)&p1[gid*i1+b1[bid]])->").
-	gsub(/p2->/,"((#{t2[i]}*)&p2[gid*i2+b2[bid]])->").
-	gsub(/p3->/,"((#{t2[i]}*)&p3[gid*i3+b3[bid]])->").
-	gsub(/\*p0/,"(*(#{t1[i]}*)&p0[gid*i1])").
-	gsub(/\*p1/,"(*(#{t1[i]}*)&p1[gid*i1+b1[bid]])").
-	gsub(/\*p2/,"(*(#{t2[i]}*)&p2[gid*i2+b2[bid]])").
-	gsub(/\*p3/,"(*(#{t2[i]}*)&p3[gid*i3+b3[bid]])").
+	gsub(/p1->/,"((#{t1[i]}*)pp1)->").
+	gsub(/p2->/,"((#{t2[i]}*)pp2)->").
+	gsub(/p3->/,"((#{t2[i]}*)pp3)->").
+	gsub(/\*p1/,"(*(#{t1[i]}*)pp1)").
+	gsub(/\*p2/,"(*(#{t2[i]}*)pp2)").
+	gsub(/\*p3/,"(*(#{t2[i]}*)pp3)").
 	gsub(/type1/,td[i]).
 	gsub(/typecl/,tcl[i]).
 	gsub(/typef/,tr[i]).
 	gsub(/typercl/,trcl[i])
       puts $func_body.
 	gsub(/#name/,name).
-	sub(/GLOBAL_ID/,'int gid = get_global_id(0);').
-	sub(/BASE_ID/,'int bid = get_global_id(1);').
-	sub(/OPERATION/,f).
-	gsub(/#C/,c[i]).
-	gsub(/typecl/,tcl[i]).
-	gsub(/typercl/,trcl[i])
-    end
-  end
-  # Function Array
-  narray_types = ["NA_NONE", "NA_BYTE", "NA_SINT", "NA_LINT", "NA_SFLOAT", "NA_DFLOAT", "NA_SCOMPLEX", "NA_DCOMPLEX", "NA_ROBJ", "NA_NTYPES"]
-  #print "\ncl_kernel #{name}Funcs =\n{ "
-  $globals << "na_opencl_kernel1_t #{name}Kernels;" 
-  #m = []
-  for i in 0...c.size
-    if func[i] == nil
-  #    m += ['TpErr']
-      $kernels << "  #{name}Kernels[#{narray_types[i]}] = NULL;"
-    elsif func[i]=='swp'
-      $kernels << "  #{name}Kernels[#{narray_types[i]}] = SwpKernels[#{narray_types[i]}];"
-    elsif func[i]=='set'
-  #    m += ['Set'+c[$data_types.index(t1[i])]+c[i]]
-      $kernels << "  #{name}Kernels[#{narray_types[i]}] = SetKernels[#{narray_types[i]}][#{narray_types[i]}];"
-    else
-  #    m += [name+c[i]]
-      $kernels << "  #{name}Kernels[#{narray_types[i]}] = clCreateKernel(program, \"#{name+c[i]}\", &ret);"
-    end
-  end
-  #print m.join(", ")+" };\n"
-end
-
-def mkopenclnmathfuncs(name,t1,t2,func)
-
-  print "
-/* ------------------------- #{name} --------------------------- */\n"
-  c   = $type_codes
-  td  = $data_types
-  tr  = $real_types
-  tcl = $opencl_types
-  trcl= $realopencl_types
-
-  for i in 0...c.size
-    if func[i] != nil
-      f = func[i].
-	gsub(/p0->/,"((#{t1[i]}*)&p0[gid*i1])->").
-	gsub(/p1->/,"((#{t1[i]}*)&p1[gid*i1])->").
-	gsub(/p2->/,"((#{t2[i]}*)&p2[gid*i2])->").
-	gsub(/p3->/,"((#{t2[i]}*)&p3[gid*i3])->").
-	gsub(/\*p0/,"(*(#{t1[i]}*)&p0[gid*i1])").
-	gsub(/\*p1/,"(*(#{t1[i]}*)&p1[gid*i1])").
-	gsub(/\*p2/,"(*(#{t2[i]}*)&p2[gid*i2])").
-	gsub(/\*p3/,"(*(#{t2[i]}*)&p3[gid*i3])").
-	gsub(/type1/,td[i]).
-	gsub(/typecl/,tcl[i]).
-	gsub(/typef/,tr[i]).
-	gsub(/typercl/,trcl[i])
-      puts $func_body.
-	gsub(/#name/,name).
-	sub(/GLOBAL_ID/,'int gid = get_global_id(0);').
 	sub(/OPERATION/,f).
 	gsub(/#C/,c[i]).
 	gsub(/typecl/,tcl[i]).
@@ -255,11 +184,19 @@ data = [
   [/[X]/,/[X]/,      "p1->r = p2->r; p1->i = p2->i;"]
 ]
 $func_body = 
-  "__kernel void #name#CC(__local char* p0, __global char* p1, int i1, __global long* b1, __global char* p2, int i2, __global long* b2)
+  "__kernel void #name#CC(int n, __global char* p1, int i1, int b1, __global char* p2, int i2, int b2)
 {
-  GLOBAL_ID
-  BASE_ID
-  OPERATION
+  int gid = get_global_id(0);
+  int gsize = get_global_size(0);
+  uint loop_size = (n+gsize-1)/gsize;
+  uint start = gid * loop_size;
+  __global char* pp1 = p1 + start*i1 + b1;
+  __global char* pp2 = p2 + start*i2 + b2;
+  //uint j = min(sub_sat((uint)n, start), loop_size);
+  uint j = min(((n>start)? n-start : 0), loop_size);
+  for(;j;j--,pp1+=i1,pp2+=i2) {
+    OPERATION
+  }
 }
 "
 mkopenclsetfuncs('Set','','',data)
@@ -270,11 +207,19 @@ mkopenclsetfuncs('Set','','',data)
 #  Unary Funcs
 #
 $func_body = 
-  "__kernel void #name#C(__local char* p0, __global char* p1, int i1, __global long* b1, __global char* p2, int i2, __global long* b2)
+  "__kernel void #name#C(int n, __global char* p1, int i1, int b1, __global char* p2, int i2, int b2)
 {
-  GLOBAL_ID
-  BASE_ID
-  OPERATION
+  int gid = get_global_id(0);
+  int gsize = get_global_size(0);
+  uint loop_size = (n+gsize-1)/gsize;
+  uint start = gid * loop_size;
+  __global char* pp1 = p1 + start*i1 + b1;
+  __global char* pp2 = p2 + start*i2 + b2;
+  //uint j = min(sub_sat((uint)n, start), loop_size);
+  uint j = min(((n>start)? n-start : 0), loop_size);
+  for(;j;j--,pp1+=i1,pp2+=i2) {
+    OPERATION
+  }
 }
 "
 
@@ -329,54 +274,39 @@ mkopenclfuncs('Neg', $opencl_types, $opencl_types,
  ["*p1 = -*p2;"]*4 + 
  [nil] +
  ["p1->r = -p2->r;
-  p1->i = -p2->i;"] +
+    p1->i = -p2->i;"] +
  [nil] +
  [nil]
 )
 
 mkopenclfuncs('AddU', $opencl_types, $opencl_types,
  [nil] +
- ["*p0 = *p1 + *p2;
-//barrier(CLK_LOCAL_MEM_FENCE);
-  *p1 = *p0;"]*4 + 
+ ["*p1 += *p2;"]*4 + 
  [nil] +
- ["p0->r = p1->r + p2->r;
-  p0->i = p1->i + p2->i;
-//barrier(CLK_LOCAL_MEM_FENCE);
-  p1->r = p0->r;
-  p1->i = p0->i;"] +
+ ["p1->r += p2->r;
+    p1->i += p2->i;"] +
  [nil] +
  [nil]
 )
 
 mkopenclfuncs('SbtU', $opencl_types, $opencl_types,
  [nil] +
- ["*p0 = *p1 - *p2;
-//barrier(CLK_LOCAL_MEM_FENCE);
-  *p1 = *p0;"]*4 + 
+ ["*p1 -= *p2;"]*4 + 
  [nil] +
- ["p0->r = p1->r - p2->r;
-  p0->i = p1->i - p2->i;
-//barrier(CLK_LOCAL_MEM_FENCE);
-  p1->r = p0->r;
-  p1->i = p0->i;"] +
+ ["p1->r -= p2->r;
+    p1->i -= p2->i;"] +
  [nil] +
  [nil]
 )
 
 mkopenclfuncs('MulU', $opencl_types, $opencl_types,
  [nil] +
- ["*p0 = *p1 * *p2;
-//barrier(CLK_LOCAL_MEM_FENCE);
-  *p1 = *p0;"]*4 + 
+ ["*p1 *= *p2;"]*4 + 
  [nil] +
  ["typecl x = *p1;
-  typecl y = *p2;
-  p0->r = x.r*y.r - x.i*y.i;
-  p0->i = x.r*y.i + x.i*y.r;
-//barrier(CLK_LOCAL_MEM_FENCE);
-  p1->r = p0->r;
-  p1->i = p0->i;"] +
+    typecl y = *p2;
+    p1->r = x.r*y.r - x.i*y.i;
+    p1->i = x.r*y.i + x.i*y.r;"] +
  [nil] +
  [nil]
 )
@@ -386,18 +316,13 @@ mkopenclfuncs('DivU', $opencl_types, $opencl_types,
  #["if (*p2==0) {na_zerodiv();}
  #   *p1 /= *p2;"]*3 + 
  #["*p1 /= *p2;"]*2 + 
- ["*p0 = *p1 / *p2;
-//barrier(CLK_LOCAL_MEM_FENCE);
-  *p1 = *p0;"]*4 + 
+ ["*p1 /= *p2;"]*4 + 
  [nil] +
  ["typecl x = *p1;
-  typecl y = *p2;
-  typercl a = y.r*y.r + y.i*y.i;
-  p0->r = (x.r*y.r + x.i*y.i)/a;
-  p0->i = (x.i*y.r - x.r*y.i)/a;
-//barrier(CLK_LOCAL_MEM_FENCE);
-  p1->r = p0->r;
-  p1->i = p0->i;"] +
+    typecl y = *p2;
+    typercl a = y.r*y.r + y.i*y.i;
+    p1->r = (x.r*y.r + x.i*y.i)/a;
+    p1->i = (x.i*y.r - x.r*y.i)/a;"] +
  [nil] +
  [nil]
 )
@@ -522,18 +447,18 @@ mkopenclfuncs('Rcp', $opencl_types, $opencl_types,
  ["*p1 = 1/*p2;"]*4 + 
  [nil] +
  ["typecl z = *p2;
-  typercl x, y;
-  if ( (z.r<0 ? -z.r:z.r) > (z.i<0 ? -z.i:z.i) ) {
-    x = z.i/z.r;
-    y = (1+x*x)*z.r;
-    p1->r =  1/y;
-    p1->i = -x/y;
-  } else {
-    x = z.r/z.i;
-    y = (1+x*x)*z.i;
-    p1->r =  x/y;
-    p1->i = -1/y;
-  }"] +
+    typercl x, y;
+    if ( (z.r<0 ? -z.r:z.r) > (z.i<0 ? -z.i:z.i) ) {
+      x = z.i/z.r;
+      y = (1+x*x)*z.r;
+      p1->r =  1/y;
+      p1->i = -x/y;
+    } else {
+      x = z.r/z.i;
+      y = (1+x*x)*z.i;
+      p1->r =  x/y;
+      p1->i = -1/y;
+    }"] +
  [nil]*2
 )
 
@@ -559,275 +484,293 @@ mkopenclfuncs('Rcp', $opencl_types, $opencl_types,
 # NMath Operations
 #
 $func_body = 
-  "__kernel void #name#C(__global char* p1, int i1, __global char* p2, int i2)
+  "__kernel void #name#C(int n, __global char* p1, int i1, __global char* p2, int i2)
 {
-  GLOBAL_ID
-  OPERATION
+  int gid = get_global_id(0);
+  int gsize = get_global_size(0);
+  uint loop_size = (n+gsize-1)/gsize;
+  uint start = gid * loop_size;
+  __global char* pp1 = p1 + start*i1;
+  __global char* pp2 = p2 + start*i2;
+  //uint j = min(sub_sat((uint)n, start), loop_size);
+  uint j = min(((n>start)? n-start : 0), loop_size);
+  for(;j;j--,pp1+=i1,pp2+=i2) {
+    OPERATION
+  }
 }
 "
-mkopenclnmathfuncs('sqrt', $opencl_types, $opencl_types,
+mkopenclfuncs('sqrt', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = sqrt*p2;"] +
  [nil] +
-["typercl xr=p2->r/2, xi=p2->i/2, r=hypot(xr,xi);
-  if (xr>0) {
-    p1->r = sqrt(r+xr);
-    p1->i = xi/p1->r;
-  } else if ( (r-=xr) ) {
-    p1->i = (xi>=0) ? sqrt(r):-sqrt(r);
-    p1->r = xi/p1->i;
-  } else {
-    p1->r = p1->i = 0;
-  }"] +
+ ["typercl xr=p2->r/2, xi=p2->i/2, r=hypot(xr,xi);
+    if (xr>0) {
+      p1->r = sqrt(r+xr);
+      p1->i = xi/p1->r;
+    } else if ( (r-=xr) ) {
+      p1->i = (xi>=0) ? sqrt(r):-sqrt(r);
+      p1->r = xi/p1->i;
+    } else {
+      p1->r = p1->i = 0;
+    }"] +
  [nil]*2
 )
 
-mkopenclnmathfuncs('sin', $opencl_types, $opencl_types,
+mkopenclfuncs('sin', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = sin*p2;"] +
  [nil] +
-["p1->r = sin(p2->r)*cosh(p2->i);
-  p1->i = cos(p2->r)*sinh(p2->i);"] +
+ ["p1->r = sin(p2->r)*cosh(p2->i);
+    p1->i = cos(p2->r)*sinh(p2->i);"] +
  [nil]*2
 )
 
-mkopenclnmathfuncs('cos', $opencl_types, $opencl_types,
+mkopenclfuncs('cos', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = cos*p2;"] +
  [nil] +
-["p1->r = cos(p2->r)*cosh(p2->i);
-  p1->i = -sin(p2->r)*sinh(p2->i);"] +
+ ["p1->r = cos(p2->r)*cosh(p2->i);
+    p1->i = -sin(p2->r)*sinh(p2->i);"] +
  [nil]*2
 )
 
-mkopenclnmathfuncs('tan', $opencl_types, $opencl_types,
+mkopenclfuncs('tan', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = tan*p2;"] +
  [nil] +
-["typercl d, th, k;
-  th = tanh(2 * p2->i);
-  k = sqrt(1 - th * th); /* sech */
-  d  = 1 + cos(2 * p2->r) * k;
-  p1->r = k * sin(2 * p2->r) / d;
-  p1->i = th / d;"] +
+ ["typercl d, th, k;
+    th = tanh(2 * p2->i);
+    k = sqrt(1 - th * th); /* sech */
+    d  = 1 + cos(2 * p2->r) * k;
+    p1->r = k * sin(2 * p2->r) / d;
+    p1->i = th / d;"] +
  [nil]*2
 )
 
-mkopenclnmathfuncs('sinh', $opencl_types, $opencl_types,
+mkopenclfuncs('sinh', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = sinh*p2;"] +
  [nil] +
-["p1->r = sinh(p2->r)*cos(p2->i);
-  p1->i = cosh(p2->r)*sin(p2->i);"] +
+ ["p1->r = sinh(p2->r)*cos(p2->i);
+    p1->i = cosh(p2->r)*sin(p2->i);"] +
  [nil]*2
 )
 
-mkopenclnmathfuncs('cosh', $opencl_types, $opencl_types,
+mkopenclfuncs('cosh', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = cosh*p2;"] +
  [nil] +
-["p1->r = cosh(p2->r)*cos(p2->i);
-  p1->i = sinh(p2->r)*sin(p2->i);"] +
+ ["p1->r = cosh(p2->r)*cos(p2->i);
+    p1->i = sinh(p2->r)*sin(p2->i);"] +
  [nil]*2
 )
 
-mkopenclnmathfuncs('tanh', $opencl_types, $opencl_types,
+mkopenclfuncs('tanh', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = tanh*p2;"] +
  [nil] +
-["typercl d, th, k;
-  th = tanh(2 * p2->r);
-  k = sqrt(1 - th * th); /* sech */
-  d  = 1 + cos(2 * p2->i) * k;
-  p1->i = k * sin(2 * p2->i) / d;
-  p1->r = th / d;"] +
+ ["typercl d, th, k;
+    th = tanh(2 * p2->r);
+    k = sqrt(1 - th * th); /* sech */
+    d  = 1 + cos(2 * p2->i) * k;
+    p1->i = k * sin(2 * p2->i) / d;
+    p1->r = th / d;"] +
  [nil]*2
 )
 
-mkopenclnmathfuncs('exp', $opencl_types, $opencl_types,
+mkopenclfuncs('exp', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = exp*p2;"] +
  [nil] +
-["typercl a = exp(p2->r);
-  p1->r = a*cos(p2->i);
-  p1->i = a*sin(p2->i);"] +
+ ["typercl a = exp(p2->r);
+    p1->r = a*cos(p2->i);
+    p1->i = a*sin(p2->i);"] +
  [nil]*2
 )
 
-mkopenclnmathfuncs('log', $opencl_types, $opencl_types,
+mkopenclfuncs('log', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = log*p2;"] +
  [nil] +
-["typecl x = *p2;
-  p1->r = log(hypot(x.r, x.i));
-  p1->i = atan2(x.i, x.r);"] +
+ ["typecl x = *p2;
+    p1->r = log(hypot(x.r, x.i));
+    p1->i = atan2(x.i, x.r);"] +
  [nil]*2
 )
 
-mkopenclnmathfuncs('log10', $opencl_types, $opencl_types,
+mkopenclfuncs('log10', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = log10*p2;"] +
  [nil] +
-["typecl x = *p2;
-  p1->r = log(hypot(x.r, x.i)) * M_LOG10E;
-  p1->i = atan2(x.i, x.r) * M_LOG10E;"] +
+ ["typecl x = *p2;
+    p1->r = log(hypot(x.r, x.i)) * M_LOG10E;
+    p1->i = atan2(x.i, x.r) * M_LOG10E;"] +
  [nil]*2
 )
 
-mkopenclnmathfuncs('log2', $opencl_types, $opencl_types,
+mkopenclfuncs('log2', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = log2*p2;"] +
  [nil] +
-["typecl x = *p2;
-  p1->r = log(hypot(x.r, x.i)) * M_LOG2E;
-  p1->i = atan2(x.i, x.r) * M_LOG2E;"] +
+ ["typecl x = *p2;
+    p1->r = log(hypot(x.r, x.i)) * M_LOG2E;
+    p1->i = atan2(x.i, x.r) * M_LOG2E;"] +
  [nil]*2
 )
 
-mkopenclnmathfuncs('asin', $opencl_types, $opencl_types,
+mkopenclfuncs('asin', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = asin*p2;"] +
  [nil] +
-["typecl x = *p2;
-  typecl y;
-  typercl r=x.r;
-  typercl xr = (1 - (r*r - x.i*x.i))/2;
-  typercl xi = -r*x.i;
-  r=hypot(xr,xi);
-  if (xr>0) {
-    y.r = sqrt(r+xr) - x.i;
-    y.i = xi/y.r + x.r;
-  } else if ( (r-=xr) ) {
-    y.i = ((xi>=0) ? sqrt(r):-sqrt(r)) + x.r;
-    y.r = xi/y.i - x.i;
-  } else {
-    y.r = - x.i;
-    y.i = x.r;
-  }
-  p1->r = atan2(y.i, y.r);
-  p1->i = - log(hypot(y.r, y.i));"] +
+ ["typecl x = *p2;
+    typecl y;
+    typercl r=x.r;
+    typercl xr = (1 - (r*r - x.i*x.i))/2;
+    typercl xi = -r*x.i;
+    r=hypot(xr,xi);
+    if (xr>0) {
+      y.r = sqrt(r+xr) - x.i;
+      y.i = xi/y.r + x.r;
+    } else if ( (r-=xr) ) {
+      y.i = ((xi>=0) ? sqrt(r):-sqrt(r)) + x.r;
+      y.r = xi/y.i - x.i;
+    } else {
+      y.r = - x.i;
+      y.i = x.r;
+    }
+    p1->r = atan2(y.i, y.r);
+    p1->i = - log(hypot(y.r, y.i));"] +
  [nil]*2
 )
 
-mkopenclnmathfuncs('asinh', $opencl_types, $opencl_types,
+mkopenclfuncs('asinh', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = asinh*p2;"] +
  [nil] +
-["typecl x = *p2;
-  typecl y;
-  typercl r=x.r;
-  typercl xr = ((r*r - x.i*x.i) + 1)/2;
-  typercl xi = r*x.i;
-  r=hypot(xr,xi);
-  if (xr>0) {
-    y.r = sqrt(r+xr) + x.r;
-    y.i = xi/y.r + x.i;
-  } else if ( (r-=xr) ) {
-    y.i = ((xi>=0) ? sqrt(r):-sqrt(r)) + x.i;
-    y.r = xi/y.i + x.r;
-  } else {
-    y.r = x.r;
-    y.i = x.i;
-  }
-  p1->r = log(hypot(y.r, y.i));
-  p1->i = atan2(y.i, y.r);"] +
+ ["typecl x = *p2;
+    typecl y;
+    typercl r=x.r;
+    typercl xr = ((r*r - x.i*x.i) + 1)/2;
+    typercl xi = r*x.i;
+    r=hypot(xr,xi);
+    if (xr>0) {
+      y.r = sqrt(r+xr) + x.r;
+      y.i = xi/y.r + x.i;
+    } else if ( (r-=xr) ) {
+      y.i = ((xi>=0) ? sqrt(r):-sqrt(r)) + x.i;
+      y.r = xi/y.i + x.r;
+    } else {
+      y.r = x.r;
+      y.i = x.i;
+    }
+    p1->r = log(hypot(y.r, y.i));
+    p1->i = atan2(y.i, y.r);"] +
  [nil]*2
 )
 
-mkopenclnmathfuncs('acos', $opencl_types, $opencl_types,
+mkopenclfuncs('acos', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = acos*p2;"] +
  [nil] +
-["typecl x = *p2;
-  typecl y;
-  typercl r=x.r;
-  typercl xr = (1 - (r*r - x.i*x.i))/2;
-  typercl xi = -r*x.i;
-  r=hypot(xr,xi);
-  if (xr>0) {
-    y.r = -(xi/y.r) + x.r;
-    y.i = sqrt(r+xr) + x.i;
-  } else if ( (r-=xr) ) {
-    y.i = xi/y.i + x.i;
-    y.r = ((xi>=0) ? -sqrt(r):sqrt(r)) + x.r;
-  } else {
-    y.r = x.r;
-    y.i = x.i;
-  }
-  p1->r = atan2(y.i, y.r);
-  p1->i = - log(hypot(y.r, y.i));"] +
+ ["typecl x = *p2;
+    typecl y;
+    typercl r=x.r;
+    typercl xr = (1 - (r*r - x.i*x.i))/2;
+    typercl xi = -r*x.i;
+    r=hypot(xr,xi);
+    if (xr>0) {
+      y.r = -(xi/y.r) + x.r;
+      y.i = sqrt(r+xr) + x.i;
+    } else if ( (r-=xr) ) {
+      y.i = xi/y.i + x.i;
+      y.r = ((xi>=0) ? -sqrt(r):sqrt(r)) + x.r;
+    } else {
+      y.r = x.r;
+      y.i = x.i;
+    }
+    p1->r = atan2(y.i, y.r);
+    p1->i = - log(hypot(y.r, y.i));"] +
  [nil]*2
 )
 
-mkopenclnmathfuncs('acosh', $opencl_types, $opencl_types,
+mkopenclfuncs('acosh', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = acosh*p2;"] +
  [nil] +
-["typecl x = *p2;
-  typecl y;
-  typercl r=x.r;
-  typercl xr = ((r*r - x.i*x.i) - 1)/2;
-  typercl xi = r*x.i;
-  r=hypot(xr,xi);
-  if (xr>0) {
-    y.r = sqrt(r+xr) + x.r;
-    y.i = xi/y.r + x.i;
-  } else if ( (r-=xr) ) {
-    y.i = ((xi>=0) ? sqrt(r):-sqrt(r)) + x.i;
-    y.r = xi/y.i + x.r;
-  } else {
-    y.r = x.r;
-    y.i = x.i;
-  }
-  p1->r = log(hypot(y.r, y.i));
-  p1->i = atan2(y.i, y.r);"] +
+ ["typecl x = *p2;
+    typecl y;
+    typercl r=x.r;
+    typercl xr = ((r*r - x.i*x.i) - 1)/2;
+    typercl xi = r*x.i;
+    r=hypot(xr,xi);
+    if (xr>0) {
+      y.r = sqrt(r+xr) + x.r;
+      y.i = xi/y.r + x.i;
+    } else if ( (r-=xr) ) {
+      y.i = ((xi>=0) ? sqrt(r):-sqrt(r)) + x.i;
+      y.r = xi/y.i + x.r;
+    } else {
+      y.r = x.r;
+      y.i = x.i;
+    }
+    p1->r = log(hypot(y.r, y.i));
+    p1->i = atan2(y.i, y.r);"] +
  [nil]*2
 )
 
-mkopenclnmathfuncs('atan', $opencl_types, $opencl_types,
+mkopenclfuncs('atan', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = atan*p2;"] +
  [nil] +
-["typecl x,y,z;
-  x.r=-p2->r; x.i=1-p2->i;
-  y.r= p2->r; y.i=1+p2->i;
-  typercl a = x.r*x.r + x.i*x.i;
-  z.r = (y.r*x.r + y.i*x.i)/a;
-  z.i = (y.i*x.r - y.r*x.i)/a;
-  p1->r = - atan2(z.i, z.r)/2;
-  p1->i = log(hypot(z.r, z.i))/2;"] +
+ ["typecl x,y,z;
+    x.r=-p2->r; x.i=1-p2->i;
+    y.r= p2->r; y.i=1+p2->i;
+    typercl a = x.r*x.r + x.i*x.i;
+    z.r = (y.r*x.r + y.i*x.i)/a;
+    z.i = (y.i*x.r - y.r*x.i)/a;
+    p1->r = - atan2(z.i, z.r)/2;
+    p1->i = log(hypot(z.r, z.i))/2;"] +
  [nil]*2
 )
 
-mkopenclnmathfuncs('atanh', $opencl_types, $opencl_types,
+mkopenclfuncs('atanh', $opencl_types, $opencl_types,
  [nil]*4 +
  ["*p1 = atanh*p2;"] +
  [nil] +
-["typecl x,y,z;
-  x.r=1-p2->r; x.i=-p2->i;
-  y.r=1+p2->r; y.i= p2->i;
-  typercl a = x.r*x.r + x.i*x.i;
-  z.r = (y.r*x.r + y.i*x.i)/a;
-  z.i = (y.i*x.r - y.r*x.i)/a;
-  p1->r = log(hypot(z.r, z.i))/2;
-  p1->i = atan2(z.i, z.r)/2;"] +
+ ["typecl x,y,z;
+    x.r=1-p2->r; x.i=-p2->i;
+    y.r=1+p2->r; y.i= p2->i;
+    typercl a = x.r*x.r + x.i*x.i;
+    z.r = (y.r*x.r + y.i*x.i)/a;
+    z.i = (y.i*x.r - y.r*x.i)/a;
+    p1->r = log(hypot(z.r, z.i))/2;
+    p1->i = atan2(z.i, z.r)/2;"] +
  [nil]*2
 )
 
 # indgen
 $func_body = 
-  "__kernel void #name#C(__global char* p1, int i1, int p2, int i2)
+  "__kernel void #name#C(int n, __global char* p1, int i1, int p2, int i2)
 {
-  GLOBAL_ID
-  OPERATION
+  int gid = get_global_id(0);
+  int gsize = get_global_size(0);
+  uint loop_size = (n+gsize-1)/gsize;
+  uint start = gid * loop_size;
+  __global char* pp1 = p1 + start*i1;
+  p2 += start*i2;
+  //uint j = min(sub_sat((uint)n, start), loop_size);
+  uint j = min(((n>start)? n-start : 0), loop_size);
+  for(;j;j--,pp1+=i1,p2+=i2) {
+    OPERATION
+  }
 }
 "
-mkopenclnmathfuncs('IndGen',$opencl_types,[$opencl_types[3]]*8,
+mkopenclfuncs('IndGen',$opencl_types,[$opencl_types[3]]*8,
  [nil] +
- ["*p1 = p2+gid*i2;"]*4 +
+ ["*p1 = p2;"]*4 +
  [nil] +
- ["p1->r = p2+gid*i2;
-  p1->i = 0;"] +
+ ["p1->r = p2;
+    p1->i = 0;"] +
  [nil] +
  [nil]
 )
@@ -942,11 +885,20 @@ mkopenclnmathfuncs('IndGen',$opencl_types,[$opencl_types[3]]*8,
 #   Binary Funcs
 #
 $func_body = 
-  "__kernel void #name#C(__local char* p0, __global char* p1, int i1, __global long* b1, __global char* p2, int i2, __global long* b2, __global char* p3, int i3, __global long* b3)
+  "__kernel void #name#C(int n, __global char* p1, int i1, int b1, __global char* p2, int i2, int b2, __global char* p3, int i3, int b3)
 {
-  GLOBAL_ID
-  BASE_ID
-  OPERATION
+  int gid = get_global_id(0);
+  int gsize = get_global_size(0);
+  uint loop_size = (n+gsize-1)/gsize;
+  uint start = gid * loop_size;
+  __global char* pp1 = p1 + start*i1 + b1;
+  __global char* pp2 = p2 + start*i2 + b2;
+  __global char* pp3 = p3 + start*i3 + b3;
+  //uint j = min(sub_sat((uint)n, start), loop_size);
+  uint j = min(((n>start)? n-start : 0), loop_size);
+  for(;j;j--,pp1+=i1,pp2+=i2,pp3+=i3) {
+    OPERATION
+  }
 }
 "
 
@@ -955,7 +907,7 @@ mkopenclfuncs('AddB', $opencl_types, $opencl_types,
  ["*p1 = *p2 + *p3;"]*4 + 
  [nil] +
  ["p1->r = p2->r + p3->r;
-  p1->i = p2->i + p3->i;"] +
+    p1->i = p2->i + p3->i;"] +
  [nil] +
  [nil]
 )
@@ -965,7 +917,7 @@ mkopenclfuncs('SbtB', $opencl_types, $opencl_types,
  ["*p1 = *p2 - *p3;"]*4 + 
  [nil] +
  ["p1->r = p2->r - p3->r;
-  p1->i = p2->i - p3->i;"] +
+    p1->i = p2->i - p3->i;"] +
  [nil] +
  [nil]
 )
@@ -978,9 +930,9 @@ mkopenclfuncs('MulB', $opencl_types, $opencl_types,
  # p1->r = x.r*p3->r - x.i*p3->i;
  # p1->i = x.r*p3->i + x.i*p3->r;"]*2 +
  ["typecl x = *p2;
-  typecl y = *p3;
-  p1->r = x.r*y.r - x.i*y.i;
-  p1->i = x.r*y.i + x.i*y.r;"] +
+    typecl y = *p3;
+    p1->r = x.r*y.r - x.i*y.i;
+    p1->i = x.r*y.i + x.i*y.r;"] +
  [nil] +
  [nil]
 )
@@ -997,10 +949,10 @@ mkopenclfuncs('DivB', $opencl_types, $opencl_types,
  # p1->r = (x.r*p3->r + x.i*p3->i)/a;
  # p1->i = (x.i*p3->r - x.r*p3->i)/a;"]*2 +
  ["typecl x = *p2;
-  typecl y = *p3;
-  typercl a = y.r*y.r + y.i*y.i;
-  p1->r = (x.r*y.r + x.i*y.i)/a;
-  p1->i = (x.i*y.r - x.r*y.i)/a;"] +
+    typecl y = *p3;
+    typercl a = y.r*y.r + y.i*y.i;
+    p1->r = (x.r*y.r + x.i*y.i)/a;
+    p1->i = (x.i*y.r - x.r*y.i)/a;"] +
  [nil] +
  [nil]
 )
@@ -1015,46 +967,30 @@ mkopenclfuncs('ModB', $opencl_types, $opencl_types,
 
 mkopenclfuncs('MulAdd', $opencl_types, $opencl_types,
  [nil] +
- ["*p0 = *p1 + *p2 * *p3;
-//barrier(CLK_LOCAL_MEM_FENCE);
-  *p1 = *p0;"]*3 + 
- ["*p0 = fma(*p2, *p3, *p1);
-//barrier(CLK_LOCAL_MEM_FENCE);
-  *p1 = *p0;"] + 
+ ["*p1 += *p2 * *p3;"]*4 + 
  [nil] +
  #["typecl x = *p2;
  # p0->r = p1->r + x.r*p3->r - x.i*p3->i;
  # p0->i = p1->i + x.r*p3->i + x.i*p3->r;"]*2 +
  ["typecl x = *p2;
-  typecl y = *p3;
-  p0->r = fma(-(x.i), y.i, fma(x.r, y.r, p1->r));
-  p0->i = fma(  x.i,  y.r, fma(x.r, y.i, p1->i));
-//barrier(CLK_LOCAL_MEM_FENCE);
-  p1->r = p0->r;
-  p1->i = p0->i;"] +
+    typecl y = *p3;
+    p1->r = fma(-(x.i), y.i, fma(x.r, y.r, p1->r));
+    p1->i = fma(  x.i,  y.r, fma(x.r, y.i, p1->i));"] +
  [nil] +
  [nil]
 )
 
 mkopenclfuncs('MulSbt', $opencl_types, $opencl_types,
  [nil] +
- ["*p0 = *p1 - *p2 * *p3;
-//barrier(CLK_LOCAL_MEM_FENCE);
-  *p1 = *p0;"]*3 + 
- ["*p0 = fma(-*p2, *p3, *p1);
-//barrier(CLK_LOCAL_MEM_FENCE);
-  *p1 = *p0;"] + 
+ ["*p1 -= *p2 * *p3;"]*4 + 
  [nil] +
  #["typecl x = *p2;
  # p0->r = p1->r - x.r*p3->r - x.i*p3->i;
  # p0->i = p1->i - x.r*p3->i + x.i*p3->r;"]*2 +
  ["typecl x = *p2;
-  typecl y = *p3;
-  p0->r = fma(-(x.i), y.i, fma(-(x.r), y.r, p1->r));
-  p0->i = fma(  x.i,  y.r, fma(-(x.r), y.i, p1->i));
-//barrier(CLK_LOCAL_MEM_FENCE);
-  p1->r = p0->r;
-  p1->i = p0->i;"] +
+    typecl y = *p3;
+    p1->r = fma(-(x.i), y.i, fma(-(x.r), y.r, p1->r));
+    p1->i = fma(  x.i,  y.r, fma(-(x.r), y.i, p1->i));"] +
  [nil] +
  [nil]
 )
@@ -1099,8 +1035,8 @@ mkopenclfuncs('Eql', [$opencl_types[1]]*9, $opencl_types,
 mkopenclfuncs('Cmp', [$opencl_types[1]]*9, $opencl_types,
  [nil] +
  ["if (*p2>*p3) *p1=1;
-    else if (*p2<*p3) *p1=2;
-    else *p1=0;"]*4 +
+      else if (*p2<*p3) *p1=2;
+      else *p1=0;"]*4 +
  [nil]*4
 )
 
@@ -1182,22 +1118,18 @@ def mkopenclpowfuncs(name,funcs)
           tu = tcl[$upcast[i][j]]
           f = k[2]
 	  f = f.
-            gsub(/p0->/,"((#{tcl[i]}*)&p0[gid*i1])->").
-            gsub(/p1->/,"((#{tu}*)&p1[gid*i1+b1[bid]])->").
-            gsub(/p2->/,"((#{tcl[i]}*)&p2[gid*i2+b2[bid]])->").
-            gsub(/p3->/,"((#{tcl[j]}*)&p3[gid*i3+b3[bid]])->").
-            gsub(/\*p0/,"(*(#{tcl[i]}*)&p0[gid*i1])").
-            gsub(/\*p1/,"(*(#{tu}*)&p1[gid*i1+b1[bid]])").
-            gsub(/\*p2/,"(*(#{tcl[i]}*)&p2[gid*i2+b2[bid]])").
-            gsub(/\*p3/,"(*(#{tcl[j]}*)&p3[gid*i3+b3[bid]])").
+            gsub(/p1->/,"((#{tu}*)pp1)->").
+            gsub(/p2->/,"((#{tcl[i]}*)pp2)->").
+            gsub(/p3->/,"((#{tcl[j]}*)pp3)->").
+            gsub(/\*p1/,"(*(#{tu}*)pp1)").
+            gsub(/\*p2/,"(*(#{tcl[i]}*)pp2)").
+            gsub(/\*p3/,"(*(#{tcl[j]}*)pp3)").
             gsub(/typecl1/,tu).
             gsub(/typecl2/,tcl[i]).
             gsub(/typecl3/,tcl[j]).
             gsub(/typercl2/,trcl[i])
 	  puts $func_body.
 	    gsub(/#name/,name).
-            sub(/GLOBAL_ID/,'int gid = get_global_id(0);').
-            sub(/BASE_ID/,'int bid = get_global_id(1);').
 	    sub(/OPERATION/,f).
 	    gsub(/#CC/,c[i]+c[j])
 	end
@@ -1226,81 +1158,90 @@ def mkopenclpowfuncs(name,funcs)
 end
 
 $func_body = 
-  "__kernel void #name#CC(__local char* p0, __global char* p1, int i1, __global long* b1, __global char* p2, int i2, __global long* b2, __global char* p3, int i3, __global long* b3)
+  "__kernel void #name#CC(int n, __global char* p1, int i1, int b1, __global char* p2, int i2, int b2, __global char* p3, int i3, int b3)
 {
-  GLOBAL_ID
-  BASE_ID
-  OPERATION
+  int gid = get_global_id(0);
+  int gsize = get_global_size(0);
+  uint loop_size = (n+gsize-1)/gsize;
+  uint start = gid * loop_size;
+  __global char* pp1 = p1 + start*i1 + b1;
+  __global char* pp2 = p2 + start*i2 + b2;
+  __global char* pp3 = p3 + start*i3 + b3;
+  //uint j = min(sub_sat((uint)n, start), loop_size);
+  uint j = min(((n>start)? n-start : 0), loop_size);
+  for(;j;j--,pp1+=i1,pp2+=i2,pp3+=i3) {
+    OPERATION
+  }
 }
 
 "
 mkopenclpowfuncs('Pow', [
  [/[BILF]/,/[BIL]/, "typecl1 z=1;
-  *p0 = *p2;
-  typecl3 y = abs(*p3);
-  typecl3 i = 0;
-  while (y>>i) {
-    if ( ((y>>i++)&1) == 1 ) z *= *p0;
-    *p0 *= *p0;
-  }
-  if (*p3<0) {
-    *p1 = 1/z;
-  }else {
-    *p1 = z;
-  }"],
+    typecl2 x = *p2;
+    typecl3 y = abs(*p3);
+    typecl3 i = 0;
+    while (y>>i) {
+      if ( ((y>>i++)&1) == 1 ) z *= x;
+      x *= x;
+    }
+    if (*p3<0) {
+      *p1 = 1/z;
+    }else {
+      *p1 = z;
+    }"],
  [/[BILF]/,/[F]/,"*p1 = pow(*p2,*p3);"],
  [/[X]/,/[BIL]/,  "typecl1 z={1,0};
-  *p0 = *p2;
-  typecl3 y = abs(*p3);
-  typecl3 i = 0;
-  while (y>>i) {
-    if ( ((y>>i++)&1) == 1 ) {
-      z.r = z.r * p0->r - z.i * p0->i;
-      z.i = z.r * p0->i + z.i * p0->r;
+    typecl2 x = *p2;
+    typecl3 y = abs(*p3);
+    typecl3 i = 0;
+    while (y>>i) {
+      if ( ((y>>i++)&1) == 1 ) {
+        z.r = z.r * x.r - z.i * x.i;
+        z.i = z.r * x.i + z.i * x.r;
+      }
+      x.r = x.r * x.r - x.i * x.i;
+      x.i = 2 * x.r * x.i;
     }
-    p0->r = p0->r * p0->r - p0->i * p0->i;
-    p0->i = 2 * p0->r * p0->i;
-  }
-  if (*p3<0) {
-    typercl2 v, w;
-    if ( (z.r<0 ? -z.r:z.r) > (z.i<0 ? -z.i:z.i) ) {
-      v = z.i/z.r;
-      w = (1+v*v)*z.r;
-      p1->r =  1/w;
-      p1->i = -v/w;
-    } else {
-      v = z.r/z.i;
-      w = (1+v*v)*z.i;
-      p1->r =  v/w;
-      p1->i = -1/w;
-    }
-  }else {
-    *p1 = z;
-  }"],
+    if (*p3<0) {
+      typercl2 v, w;
+      if ( (z.r<0 ? -z.r:z.r) > (z.i<0 ? -z.i:z.i) ) {
+        v = z.i/z.r;
+        w = (1+v*v)*z.r;
+        p1->r =  1/w;
+        p1->i = -v/w;
+      } else {
+        v = z.r/z.i;
+        w = (1+v*v)*z.i;
+        p1->r =  v/w;
+        p1->i = -1/w;
+      }
+    }else {
+      *p1 = z;
+    }"],
  [/[X]/,/[F]/, "typecl2 x;
-  if (*p3==0) {
-    p1->r=1; p1->i=0; 
-  }else if (p2->r==0 && p2->i==0 && *p3>0) {
-    p1->r=0; p1->i=0;
-  }else {
-    x.r = exp(log(hypot(p2->r, p2->i)) * *p3);
-    x.i = atan2(p2->i, p2->r) * *p3;
-    p1->r = x.r * cos(x.i);
-    p1->i = x.r * sin(x.i);
-  }"],
+    if (*p3==0) {
+      p1->r=1; p1->i=0; 
+    }else if (p2->r==0 && p2->i==0 && *p3>0) {
+      p1->r=0; p1->i=0;
+    }else {
+      x.r = exp(log(hypot(p2->r, p2->i)) * *p3);
+      x.i = atan2(p2->i, p2->r) * *p3;
+      p1->r = x.r * cos(x.i);
+      p1->i = x.r * sin(x.i);
+    }"],
  [/[X]/,/[X]/, "typecl2 x, y;
-  if (p3->r==0 && p3->i==0) {
-    p1->r=1; p1->i=0;
-  }else if (p2->r==0 && p2->i==0 && p3->r>0 && p3->i==0) {
-    p1->r=0; p1->i=0;
-  }else {
-    y.r = log(hypot(p2->r, p2->i));
-    y.i = atan2(p2->i, p2->r);
-    x.r = exp(p3->r * y.r - p3->i * y.i);
-    x.i = p3->r * y.i + p3->i * y.r;
-    p1->r = x.r * cos(x.i);
-    p1->i = x.r * sin(x.i);
-  }"]
+    if (p3->r==0 && p3->i==0) {
+      p1->r=1; p1->i=0;
+    }else if (p2->r==0 && p2->i==0 && p3->r>0 && p3->i==0) {
+      p1->r=0; p1->i=0;
+    }else {
+      y.r = log(hypot(p2->r, p2->i));
+      y.i = atan2(p2->i, p2->r);
+      x.r = exp(p3->r * y.r - p3->i * y.i);
+      x.i = p3->r * y.i + p3->i * y.r;
+      p1->r = x.r * cos(x.i);
+      p1->i = x.r * sin(x.i);
+    }"]
 ])
 
 #
@@ -1309,7 +1250,7 @@ mkopenclpowfuncs('Pow', [
 $func_body = 
   "__kernel void #name#C(__global char* p1, int i1, typercl rmax, char sign)
 {
-  GLOBAL_ID
+  int gid = get_global_id(0);
   OPERATION
 }
 "
@@ -1404,7 +1345,6 @@ mkopenclfuncs('Rnd', $opencl_types, $opencl_types,
 $>.close
 File.open("na_opencl.h","w"){|f|
   f.puts "#define KERNEL_SRC_FILE \"#{ARGV[0]}/na_kernel.cl\""
-  f.puts "#define MAX_SOURCE_SIZE (#{File.size('./na_kernel.cl')})"
   f.puts "#define HDRDIR \"-I#{ARGV[0]} -I#{ARGV[1]}\""
   f.puts $kernels.join("\\\n") + "}"
   f.puts $globals.join("\n")

@@ -21,63 +21,65 @@ cl_context context;
 //size_t work_item_sizes[3];
 //size_t work_group_size;
 cl_uint compute_unit;
+size_t global_item_size_, local_item_size_;
+
+cl_event event;
+void checkTime(cl_event ev)
+{
+  cl_ulong start,end;
+  clWaitForEvents(1,&ev);
+  clGetEventProfilingInfo(ev,CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start,NULL);
+  clGetEventProfilingInfo(ev,CL_PROFILING_COMMAND_END,   sizeof(cl_ulong), &end,  NULL);
+  printf("%10.5f [ms]\n",(end-start)/1000000.0);
+}
 
 void
- na_opencl_do_IndGenKernel(cl_command_queue queue, size_t global_item_size, int type, cl_mem buf, int i, int start, int step)
+ na_opencl_do_IndGenKernel(cl_command_queue queue, int len, int type, cl_mem buf, int i, int start, int step)
 {
-  cl_int ret;
-  size_t local_item_size = compute_unit;
-  MAX_DIV(global_item_size, local_item_size);
+  int argn = 0;
 
   /* set OpenCL kernel arguments */
-  ret = clSetKernelArg(IndGenKernels[type], 0, sizeof(cl_mem), (void *)&buf);
-  ret = clSetKernelArg(IndGenKernels[type], 1, sizeof(cl_int), (void *)&i);
-  ret = clSetKernelArg(IndGenKernels[type], 2, sizeof(cl_int), (void *)&start);
-  ret = clSetKernelArg(IndGenKernels[type], 3, sizeof(cl_int), (void *)&step);
+  clSetKernelArg(IndGenKernels[type], argn++, sizeof(cl_int), (void *)&len);
+  clSetKernelArg(IndGenKernels[type], argn++, sizeof(cl_mem), (void *)&buf);
+  clSetKernelArg(IndGenKernels[type], argn++, sizeof(cl_int), (void *)&i);
+  clSetKernelArg(IndGenKernels[type], argn++, sizeof(cl_int), (void *)&start);
+  clSetKernelArg(IndGenKernels[type], argn++, sizeof(cl_int), (void *)&step);
 
   /* execute OpenCL kernel */
-  ret = clEnqueueNDRangeKernel(queue, IndGenKernels[type], 1, NULL, &global_item_size, &local_item_size, 0, NULL, NULL);
-  if (ret != CL_SUCCESS) rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
+  if (clEnqueueNDRangeKernel(queue, IndGenKernels[type], 1, NULL, &global_item_size_, &local_item_size_, 0, NULL, &event) != CL_SUCCESS) rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
+//checkTime(event);
 
   /* run commands in queue and make sure all commands in queue is done */
   clFinish(queue);
 }
 
 static void
- na_opencl_do_unary_Kernel(cl_command_queue queue, cl_kernel kernel, size_t* global_item_sizes, size_t* local_item_sizes, cl_mem buf1, int i1, size_t* b1, cl_mem buf2, int i2, size_t* b2)
+ na_opencl_do_unary_Kernel(cl_command_queue queue, cl_kernel kernel, int len, cl_mem buf1, int i1, int b1, cl_mem buf2, int i2, int b2)
 {
-  cl_int ret;
+  int argn = 0;
 
-  cl_mem bb1 = clCreateBuffer(context, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, global_item_sizes[1]*sizeof(b1), b1, NULL);
-  cl_mem bb2 = clCreateBuffer(context, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, global_item_sizes[1]*sizeof(b2), b2, NULL);
   /* set OpenCL kernel arguments */
-  ret = clSetKernelArg(kernel, 0, global_item_sizes[0]*NA_MAX(i1,i2), NULL);
-  ret = clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&buf1);
-  ret = clSetKernelArg(kernel, 2, sizeof(cl_int), (void *)&i1);
-  ret = clSetKernelArg(kernel, 3, sizeof(cl_mem), (void *)&bb1);
-  ret = clSetKernelArg(kernel, 4, sizeof(cl_mem), (void *)&buf2);
-  ret = clSetKernelArg(kernel, 5, sizeof(cl_int), (void *)&i2);
-  ret = clSetKernelArg(kernel, 6, sizeof(cl_mem), (void *)&bb2);
+  clSetKernelArg(kernel, argn++, sizeof(cl_int), (void *)&len);
+  clSetKernelArg(kernel, argn++, sizeof(cl_mem), (void *)&buf1);
+  clSetKernelArg(kernel, argn++, sizeof(cl_int), (void *)&i1);
+  clSetKernelArg(kernel, argn++, sizeof(cl_int), (void *)&b1);
+  clSetKernelArg(kernel, argn++, sizeof(cl_mem), (void *)&buf2);
+  clSetKernelArg(kernel, argn++, sizeof(cl_int), (void *)&i2);
+  clSetKernelArg(kernel, argn++, sizeof(cl_int), (void *)&b2);
 
   /* execute OpenCL kernel */
-  ret = clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global_item_sizes, local_item_sizes, 0, NULL, NULL);
-  if (ret != CL_SUCCESS) rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
+  if (clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_item_size_, &local_item_size_, 0, NULL, NULL) != CL_SUCCESS) rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
 
   /* run commands in queue and make sure all commands in queue is done */
   clFinish(queue);
-  clReleaseMemObject(bb1);clReleaseMemObject(bb2);
 }
 
 void
- na_opencl_do_SetKernel(cl_command_queue queue, size_t len, int type1, cl_mem buf1, int i1, int type2, cl_mem buf2, int i2)
+ na_opencl_do_SetKernel(cl_command_queue queue, int len, int type1, cl_mem buf1, int i1, int type2, cl_mem buf2, int i2)
 {
-  size_t global_item_sizes[] = {len, 1};
-  size_t local_item_sizes[] = {compute_unit, 1};
-  MAX_DIV(global_item_sizes[0], local_item_sizes[0]);
-  size_t b[] = {0};
-  cl_int ret;
+  int b = 0;
 
-  na_opencl_do_unary_Kernel(queue, SetKernels[type1][type2], global_item_sizes, local_item_sizes, buf1, i1, b, buf2, i2, b);
+  na_opencl_do_unary_Kernel(queue, SetKernels[type1][type2], len, buf1, i1, b, buf2, i2, b);
 }
 
 void
@@ -92,18 +94,7 @@ void
   si = ALLOCA_N(int,nd);
   s1[i].p = 0;//p1;
   s2[i].p = 0;//p2;
-///////////////////////////////////////////////////
-  int j = nd;
-  size_t global_item_sizes[] = {s2[0].n, ((j>1)?0:1)};
-  while(j>1){--j;global_item_sizes[1]+=s2[j].n;}j=0;
-  size_t local_item_sizes[] = {compute_unit, global_item_sizes[1]};
-  MAX_DIV(global_item_sizes[0], local_item_sizes[0]);
-  local_item_sizes[1] = compute_unit / (global_item_sizes[0]/local_item_sizes[0]);
-  MAX_DIV(global_item_sizes[1], local_item_sizes[1]);
-  size_t *b1 = ALLOCA_N(size_t,global_item_sizes[1]);
-  size_t *b2 = ALLOCA_N(size_t,global_item_sizes[1]);
-  cl_int ret;
-///////////////////////////////////////////////////
+
   for(;;) {
     /* set pointers */
     while (i > 0) {
@@ -113,18 +104,11 @@ void
       si[i] = s1[i].n;
     }
 ///////////////////////////////////////////////////
-    b1[j] = (size_t)s1[0].p;
-    b2[j] = (size_t)s2[0].p;
-    ++j;
+    na_opencl_do_unary_Kernel(queue, kernel, s2[0].n, buf1, ps1, (size_t)s1[0].p, buf2, ps2, (size_t)s2[0].p);
 ///////////////////////////////////////////////////
     /* rank up */
     do {
-      if ( ++i >= nd ) {
-///////////////////////////////////////////////////
-        na_opencl_do_unary_Kernel(queue, kernel, global_item_sizes, local_item_sizes, buf1, ps1, b1, buf2, ps2, b2);
-///////////////////////////////////////////////////
-        return;
-      }
+      if ( ++i >= nd ) return;
     } while ( --si[i] == 0 );
     /* next point */
     s1[i].p += s1[i].pstep;
@@ -146,19 +130,8 @@ void
   s1[i].p = 0;//p1;
   s2[i].p = 0;//p2;
   s3[i].p = 0;//p3;
-///////////////////////////////////////////////////
-  int j = nd;
-  size_t global_item_sizes[] = {s2[0].n, ((j>1)?0:1)};
-  while(j>1){--j;global_item_sizes[1]+=s2[j].n;}j=0;
-  size_t local_item_sizes[] = {compute_unit, global_item_sizes[1]};
-  MAX_DIV(global_item_sizes[0], local_item_sizes[0]);
-  local_item_sizes[1] = compute_unit / (global_item_sizes[0]/local_item_sizes[0]);
-  MAX_DIV(global_item_sizes[1], local_item_sizes[1]);
-  size_t *b1 = ALLOCA_N(size_t,global_item_sizes[1]);
-  size_t *b2 = ALLOCA_N(size_t,global_item_sizes[1]);
-  size_t *b3 = ALLOCA_N(size_t,global_item_sizes[1]);
-  cl_int ret;
-///////////////////////////////////////////////////
+  int argn = 0;
+
   for(;;) {
     /* set pointers */
     while (i > 0) {
@@ -170,40 +143,28 @@ void
     }
     /* rank 0 loop */
 ///////////////////////////////////////////////////
-    b1[j] = (size_t)s1[0].p;
-    b2[j] = (size_t)s2[0].p;
-    b3[j] = (size_t)s3[0].p;
-    ++j;
+    /* set OpenCL kernel arguments */
+    clSetKernelArg(kernel, argn++, sizeof(cl_int), (void *)&(s2[0].n));
+    clSetKernelArg(kernel, argn++, sizeof(cl_mem), (void *)&buf1);
+    clSetKernelArg(kernel, argn++, sizeof(cl_int), (void *)&ps1);
+    clSetKernelArg(kernel, argn++, sizeof(cl_int), (void *)&(s1[0].p));
+    clSetKernelArg(kernel, argn++, sizeof(cl_mem), (void *)&buf2);
+    clSetKernelArg(kernel, argn++, sizeof(cl_int), (void *)&ps2);
+    clSetKernelArg(kernel, argn++, sizeof(cl_int), (void *)&(s2[0].p));
+    clSetKernelArg(kernel, argn++, sizeof(cl_mem), (void *)&buf3);
+    clSetKernelArg(kernel, argn++, sizeof(cl_int), (void *)&ps3);
+    clSetKernelArg(kernel, argn++, sizeof(cl_int), (void *)&(s3[0].p));
+
+    /* execute OpenCL kernel */
+    if (clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_item_size_, &local_item_size_, 0, NULL, &event) != CL_SUCCESS) rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
+    //checkTime(event);
+
+    /* run commands in queue and make sure all commands in queue is done */
+    clFinish(queue);
 ///////////////////////////////////////////////////
     /* rank up */
     do {
-      if ( ++i >= nd ) {
-///////////////////////////////////////////////////
-        cl_mem bb1 = clCreateBuffer(context, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, global_item_sizes[1]*sizeof(b1), b1, NULL);
-        cl_mem bb2 = clCreateBuffer(context, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, global_item_sizes[1]*sizeof(b2), b2, NULL);
-        cl_mem bb3 = clCreateBuffer(context, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, global_item_sizes[1]*sizeof(b3), b3, NULL);
-        /* set OpenCL kernel arguments */
-        ret = clSetKernelArg(kernel, 0, global_item_sizes[0]*NA_MAX(ps1,ps2), NULL);
-        ret = clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&buf1);
-        ret = clSetKernelArg(kernel, 2, sizeof(cl_int), (void *)&ps1);
-        ret = clSetKernelArg(kernel, 3, sizeof(cl_mem), (void *)&bb1);
-        ret = clSetKernelArg(kernel, 4, sizeof(cl_mem), (void *)&buf2);
-        ret = clSetKernelArg(kernel, 5, sizeof(cl_int), (void *)&ps2);
-        ret = clSetKernelArg(kernel, 6, sizeof(cl_mem), (void *)&bb2);
-        ret = clSetKernelArg(kernel, 7, sizeof(cl_mem), (void *)&buf3);
-        ret = clSetKernelArg(kernel, 8, sizeof(cl_int), (void *)&ps3);
-        ret = clSetKernelArg(kernel, 9, sizeof(cl_mem), (void *)&bb3);
-
-        /* execute OpenCL kernel */
-        ret = clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global_item_sizes, local_item_sizes, 0, NULL, NULL);
-        if (ret != CL_SUCCESS) rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
-
-        /* run commands in queue and make sure all commands in queue is done */
-        clFinish(queue);
-        clReleaseMemObject(bb1);clReleaseMemObject(bb2);clReleaseMemObject(bb3);
-///////////////////////////////////////////////////
-        return;
-      }
+      if ( ++i >= nd ) return;
     } while ( --si[i] == 0 );
     /* next point */
     s1[i].p += s1[i].pstep;
@@ -219,6 +180,7 @@ void
   cl_platform_id platform_id = NULL;
   cl_uint ret_num_devices;
   cl_uint ret_num_platforms;
+  cl_device_type device_type;
   cl_int ret;
 
   char fileName[] = KERNEL_SRC_FILE;
@@ -226,25 +188,34 @@ void
   char *kernel_src_code;
   size_t kernel_src_size;
   const char buildOptions[] = HDRDIR;
+  fpos_t pos;
 
   /* load kernel source code */
   fp = fopen(fileName, "r");
-  if (!fp) {
-    rb_raise(rb_eIOError, "Failed loading %s\n", fileName);
-  }
-  kernel_src_code = (char*)malloc(MAX_SOURCE_SIZE);
-  kernel_src_size = fread( kernel_src_code, 1, MAX_SOURCE_SIZE, fp);
+  if (!fp) rb_raise(rb_eIOError, "Failed loading %s\n", fileName);
+  fseek(fp, 0, SEEK_END);
+  fgetpos(fp, &pos);
+  fseek(fp, 0, SEEK_SET);
+  kernel_src_size = (size_t)pos.__pos;
+  kernel_src_code = (char*)malloc(kernel_src_size);
+  fread( kernel_src_code, sizeof(char), kernel_src_size, fp);
   fclose( fp );
 
   /* get platform device info */
   clGetPlatformIDs(1, &platform_id, &ret_num_platforms);
   clGetDeviceIDs( platform_id, CL_DEVICE_TYPE_DEFAULT, 1, &device_id, &ret_num_devices);
+  //clGetDeviceInfo(device_id, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(work_item_sizes), work_item_sizes,  NULL);
+  //clGetDeviceInfo(device_id, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t),          &work_group_size, NULL);
+  clGetDeviceInfo(device_id, CL_DEVICE_MAX_COMPUTE_UNITS,   sizeof(cl_uint),         &compute_unit,    NULL);
+  clGetDeviceInfo(device_id, CL_DEVICE_TYPE,                sizeof(cl_device_type),  &device_type,     NULL);
+  local_item_size_ = (device_type == CL_DEVICE_TYPE_GPU)? 64 : 1;
+  global_item_size_ = local_item_size_ * compute_unit;
 
   /* create OpenCL context */
   context = clCreateContext( NULL, 1, &device_id, NULL, NULL, &ret);
 
   /* create kernel program from the kernel source code */
-  program = clCreateProgramWithSource(context, 1, (const char **)&kernel_src_code, (const size_t *)&kernel_src_size, &ret);
+  program = clCreateProgramWithSource(context, 1, (const char **)&kernel_src_code, NULL, &ret);
   free(kernel_src_code);
 
   /* build the kernel program */
@@ -278,11 +249,6 @@ void
 
   /* create OpenCL kernels */
   CREATE_OPENCL_KERNELS(program, ret);
-
-  /* check work item sizes */
-  //clGetDeviceInfo(device_id, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(work_item_sizes), work_item_sizes,  NULL);
-  //clGetDeviceInfo(device_id, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t),          &work_group_size, NULL);
-  clGetDeviceInfo(device_id, CL_DEVICE_MAX_COMPUTE_UNITS,   sizeof(cl_uint),         &compute_unit,    NULL);
 
 //  /* releasing OpenCL objetcs */
 //  ret = clReleaseKernel((cl_kernel)AddBFuncs[NA_LINT]); //for dev
