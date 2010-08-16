@@ -21,7 +21,7 @@ cl_context context;
 //size_t work_item_sizes[3];
 //size_t work_group_size;
 cl_uint compute_unit;
-size_t global_item_size_, local_item_size_;
+size_t global_item_size, local_item_size;
 
 cl_event event;
 void checkTime(cl_event ev)
@@ -46,7 +46,7 @@ void
   clSetKernelArg(IndGenKernels[type], argn++, sizeof(cl_int), (void *)&step);
 
   /* execute OpenCL kernel */
-  if (clEnqueueNDRangeKernel(queue, IndGenKernels[type], 1, NULL, &global_item_size_, &local_item_size_, 0, NULL, &event) != CL_SUCCESS) rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
+  if (clEnqueueNDRangeKernel(queue, IndGenKernels[type], 1, NULL, &global_item_size, &local_item_size, 0, NULL, &event) != CL_SUCCESS) rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
 //checkTime(event);
 
   /* run commands in queue and make sure all commands in queue is done */
@@ -68,7 +68,7 @@ static void
   clSetKernelArg(kernel, argn++, sizeof(cl_int), (void *)&b2);
 
   /* execute OpenCL kernel */
-  if (clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_item_size_, &local_item_size_, 0, NULL, NULL) != CL_SUCCESS) rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
+  if (clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_item_size, &local_item_size, 0, NULL, NULL) != CL_SUCCESS) rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
 
   /* run commands in queue and make sure all commands in queue is done */
   clFinish(queue);
@@ -156,7 +156,7 @@ void
     clSetKernelArg(kernel, argn++, sizeof(cl_int), (void *)&(s3[0].p));
 
     /* execute OpenCL kernel */
-    if (clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_item_size_, &local_item_size_, 0, NULL, &event) != CL_SUCCESS) rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
+    if (clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_item_size, &local_item_size, 0, NULL, &event) != CL_SUCCESS) rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
     //checkTime(event);
 
     /* run commands in queue and make sure all commands in queue is done */
@@ -208,8 +208,8 @@ void
   //clGetDeviceInfo(device_id, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t),          &work_group_size, NULL);
   clGetDeviceInfo(device_id, CL_DEVICE_MAX_COMPUTE_UNITS,   sizeof(cl_uint),         &compute_unit,    NULL);
   clGetDeviceInfo(device_id, CL_DEVICE_TYPE,                sizeof(cl_device_type),  &device_type,     NULL);
-  local_item_size_ = (device_type == CL_DEVICE_TYPE_GPU)? 64 : 1;
-  global_item_size_ = local_item_size_ * compute_unit;
+  local_item_size = (device_type == CL_DEVICE_TYPE_GPU)? 64 : 1;
+  global_item_size = local_item_size * compute_unit;
 
   /* create OpenCL context */
   context = clCreateContext( NULL, 1, &device_id, NULL, NULL, &ret);
