@@ -721,7 +721,7 @@ static void
     clSetKernelArg(kernel, argn++, sizeof(cl_int), (void *)&s2);
 
     /* execute OpenCL kernel */
-    if (clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_item_size_, &local_item_size_, 0, NULL, NULL) != CL_SUCCESS) rb_raise(rb_eRuntimeError, "Failed executing kernel \\n");
+    if (clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_item_size, &local_item_size, 0, NULL, NULL) != CL_SUCCESS) rb_raise(rb_eRuntimeError, "Failed executing kernel \\n");
 
     /* run commands in queue and make sure all commands in queue is done */
     clFinish(queue);

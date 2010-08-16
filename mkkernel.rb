@@ -161,6 +161,12 @@ static void na_zerodiv() {
 */
 EOM
 
+INIT_COMMON ="uint gid = get_group_id(0);
+  uint gsize = get_num_groups(0);
+  uint loop_size = (n+gsize-1)/gsize;
+  uint start = gid * loop_size;
+  uint j = min(((n>start)? n-start : 0), loop_size);"
+#  uint j = min(sub_sat((uint)n, start), loop_size);"
 
 #
 #  Set Fucs
@@ -186,14 +192,9 @@ data = [
 $func_body = 
   "__kernel void #name#CC(int n, __global char* p1, int i1, int b1, __global char* p2, int i2, int b2)
 {
-  int gid = get_global_id(0);
-  int gsize = get_global_size(0);
-  uint loop_size = (n+gsize-1)/gsize;
-  uint start = gid * loop_size;
+  #{INIT_COMMON}
   __global char* pp1 = p1 + start*i1 + b1;
   __global char* pp2 = p2 + start*i2 + b2;
-  //uint j = min(sub_sat((uint)n, start), loop_size);
-  uint j = min(((n>start)? n-start : 0), loop_size);
   for(;j;j--,pp1+=i1,pp2+=i2) {
     OPERATION
   }
@@ -209,14 +210,9 @@ mkopenclsetfuncs('Set','','',data)
 $func_body = 
   "__kernel void #name#C(int n, __global char* p1, int i1, int b1, __global char* p2, int i2, int b2)
 {
-  int gid = get_global_id(0);
-  int gsize = get_global_size(0);
-  uint loop_size = (n+gsize-1)/gsize;
-  uint start = gid * loop_size;
+  #{INIT_COMMON}
   __global char* pp1 = p1 + start*i1 + b1;
   __global char* pp2 = p2 + start*i2 + b2;
-  //uint j = min(sub_sat((uint)n, start), loop_size);
-  uint j = min(((n>start)? n-start : 0), loop_size);
   for(;j;j--,pp1+=i1,pp2+=i2) {
     OPERATION
   }
@@ -486,14 +482,9 @@ mkopenclfuncs('Rcp', $opencl_types, $opencl_types,
 $func_body = 
   "__kernel void #name#C(int n, __global char* p1, int i1, __global char* p2, int i2)
 {
-  int gid = get_global_id(0);
-  int gsize = get_global_size(0);
-  uint loop_size = (n+gsize-1)/gsize;
-  uint start = gid * loop_size;
+  #{INIT_COMMON}
   __global char* pp1 = p1 + start*i1;
   __global char* pp2 = p2 + start*i2;
-  //uint j = min(sub_sat((uint)n, start), loop_size);
-  uint j = min(((n>start)? n-start : 0), loop_size);
   for(;j;j--,pp1+=i1,pp2+=i2) {
     OPERATION
   }
@@ -752,14 +743,9 @@ mkopenclfuncs('atanh', $opencl_types, $opencl_types,
 $func_body = 
   "__kernel void #name#C(int n, __global char* p1, int i1, int p2, int i2)
 {
-  int gid = get_global_id(0);
-  int gsize = get_global_size(0);
-  uint loop_size = (n+gsize-1)/gsize;
-  uint start = gid * loop_size;
+  #{INIT_COMMON}
   __global char* pp1 = p1 + start*i1;
   p2 += start*i2;
-  //uint j = min(sub_sat((uint)n, start), loop_size);
-  uint j = min(((n>start)? n-start : 0), loop_size);
   for(;j;j--,pp1+=i1,p2+=i2) {
     OPERATION
   }
@@ -887,15 +873,10 @@ mkopenclfuncs('IndGen',$opencl_types,[$opencl_types[3]]*8,
 $func_body = 
   "__kernel void #name#C(int n, __global char* p1, int i1, int b1, __global char* p2, int i2, int b2, __global char* p3, int i3, int b3)
 {
-  int gid = get_global_id(0);
-  int gsize = get_global_size(0);
-  uint loop_size = (n+gsize-1)/gsize;
-  uint start = gid * loop_size;
+  #{INIT_COMMON}
   __global char* pp1 = p1 + start*i1 + b1;
   __global char* pp2 = p2 + start*i2 + b2;
   __global char* pp3 = p3 + start*i3 + b3;
-  //uint j = min(sub_sat((uint)n, start), loop_size);
-  uint j = min(((n>start)? n-start : 0), loop_size);
   for(;j;j--,pp1+=i1,pp2+=i2,pp3+=i3) {
     OPERATION
   }
@@ -1160,15 +1141,10 @@ end
 $func_body = 
   "__kernel void #name#CC(int n, __global char* p1, int i1, int b1, __global char* p2, int i2, int b2, __global char* p3, int i3, int b3)
 {
-  int gid = get_global_id(0);
-  int gsize = get_global_size(0);
-  uint loop_size = (n+gsize-1)/gsize;
-  uint start = gid * loop_size;
+  #{INIT_COMMON}
   __global char* pp1 = p1 + start*i1 + b1;
   __global char* pp2 = p2 + start*i2 + b2;
   __global char* pp3 = p3 + start*i3 + b3;
-  //uint j = min(sub_sat((uint)n, start), loop_size);
-  uint j = min(((n>start)? n-start : 0), loop_size);
   for(;j;j--,pp1+=i1,pp2+=i2,pp3+=i3) {
     OPERATION
   }
@@ -1248,10 +1224,13 @@ mkopenclpowfuncs('Pow', [
 # random
 #
 $func_body = 
-  "__kernel void #name#C(__global char* p1, int i1, typercl rmax, char sign)
+  "__kernel void #name#C(int n, __global char* p1, int i1, typercl rmax, char sign)
 {
-  int gid = get_global_id(0);
-  OPERATION
+  #{INIT_COMMON}
+  __global char* pp1 = p1 + start*i1;
+  for(;j;j--,pp1+=i1) {
+    OPERATION
+  }
 }
 "
 print <<EOM
@@ -1284,13 +1263,13 @@ __kernel void init_genrand(uint s)
 }
 
 #define genrand(y) \\
-{ int j = N - ((left==0)? (left=N) : (left--));\\
-  if (j < N-M) {\\
-    (y) = state[j] = state[j+M] ^ TWIST(state[j], state[j+1]);\\
-  }else if (j < N-1) {\\
-    (y) = state[j] = state[j+M-N] ^ TWIST(state[j], state[j+1]);\\
-  }else {/* j==N-1 */\\
-    (y) = state[j] = state[j+M-N] ^ TWIST(state[j], state[0]);\\
+{ int k = N - ((left==0)? (left=N) : (left--));\\
+  if (k < N-M) {\\
+    (y) = state[k] = state[k+M] ^ TWIST(state[k], state[k+1]);\\
+  }else if (k < N-1) {\\
+    (y) = state[k] = state[k+M-N] ^ TWIST(state[k], state[k+1]);\\
+  }else {/* k==N-1 */\\
+    (y) = state[k] = state[k+M-N] ^ TWIST(state[k], state[0]);\\
   }\\
   (y) ^= ((y) >> 11);\\
   (y) ^= ((y) << 7) & 0x9d2c5680UL;\\
@@ -1319,26 +1298,26 @@ $globals << "cl_kernel init_genrandKernel;"
 mkopenclfuncs('Rnd', $opencl_types, $opencl_types,
  [nil] +
  ["uint y;
-  int shift;
-
-  if (rmax<1) {
-    (*(typecl*)&p1[gid*i1]) = 0;
-  } else {
-    n_bits((int)rmax,shift);
-    do {
-      genrand(y);
-      y >>= shift;
-    } while (y > rmax);
-    (*(typecl*)&p1[gid*i1]) = (typecl)y*sign;
-  }"]*3 +
+    int shift;
+  
+    if (rmax<1) {
+      *p1 = 0;
+    } else {
+      n_bits((int)rmax,shift);
+      do {
+        genrand(y);
+        y >>= shift;
+      } while (y > rmax);
+      *p1 = (typecl)y*sign;
+    }"]*3 +
  ["uint y;
-  genrand(y);
-  (*(typecl*)&p1[gid*i1]) = rand_single(y) * rmax;"] +
+    genrand(y);
+    *p1 = rand_single(y) * rmax;"] +
  [nil] +
  ["uint y;
-  genrand(y);
-  ((typecl*)&p1[gid*i1])->r = rand_single(y) * rmax;
-  ((typecl*)&p1[gid*i1])->i = 0;"] +
+    genrand(y);
+    p1->r = rand_single(y) * rmax;
+    p1->i = 0;"] +
  [nil]*2
 )
 

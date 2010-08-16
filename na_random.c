@@ -141,17 +141,14 @@ rand_init(seed)
     init_genrand(seed);
 #ifdef __OPENCL__
     cl_kernel kernel = init_genrandKernel; 
-    cl_int ret;
-    size_t global_item_size = 1;
+    int argn = 0;
     cl_command_queue queue = clCreateCommandQueue(context, device_id, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE , NULL);
 
     /* set OpenCL kernel arguments */
-    ret = clSetKernelArg(kernel, 0, sizeof(cl_uint), (void *)&(seed));
+    clSetKernelArg(kernel, argn++, sizeof(cl_uint), (void *)&seed);
 
     /* execute OpenCL kernel */
-    ret = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_item_size, NULL, 0, NULL, NULL);
-    if (ret != CL_SUCCESS)
-      rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
+    if (clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &local_item_size, &local_item_size, 0, NULL, NULL) != CL_SUCCESS) rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
 
     /* run commands in queue and make sure all commands in queue is done */
     clFinish(queue);
@@ -413,7 +410,7 @@ static VALUE
 #ifdef __OPENCL__
   if (OPENCL_KERNEL(RndKernels[ary->type])) {
     cl_kernel kernel = RndKernels[ary->type]; 
-    cl_int ret;
+    int argn = 0;
     cl_command_queue queue = ary->queue;
     u_int8_t rmaxB;
     int16_t rmaxI;
@@ -422,29 +419,28 @@ static VALUE
     char sign=1; 
 
     /* set OpenCL kernel arguments */
-    ret = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&(ary->buffer));
-    ret = clSetKernelArg(kernel, 1, sizeof(cl_int), (void *)&(na_sizeof[ary->type]));
+    clSetKernelArg(kernel, argn++, sizeof(cl_int), (void *)&(ary->total));
+    clSetKernelArg(kernel, argn++, sizeof(cl_mem), (void *)&(ary->buffer));
+    clSetKernelArg(kernel, argn++, sizeof(cl_int), (void *)&(na_sizeof[ary->type]));
     switch(ary->type){
       case NA_BYTE:     if ( rmax < 0 ) { rb_raise(rb_eArgError, "rand-max must be positive"); }
                         rmaxB = size_check(rmax,0x100);
-                        ret = clSetKernelArg(kernel, 2, sizeof(cl_uchar), (void *)&rmaxB); break;
+                        clSetKernelArg(kernel, argn++, sizeof(cl_uchar), (void *)&rmaxB); break;
       case NA_SINT:     if ( rmax < 0 ) { rmax = -rmax; sign = -1; }
                         rmaxI = size_check(rmax,0x8000);
-                        ret = clSetKernelArg(kernel, 2, sizeof(cl_short), (void *)&rmaxI); break;
+                        clSetKernelArg(kernel, argn++, sizeof(cl_short), (void *)&rmaxI); break;
       case NA_LINT:     if ( rmax < 0 ) { rmax = -rmax; sign = -1; }
                         rmaxL = size_check(rmax,0x80000000);
-                        ret = clSetKernelArg(kernel, 2, sizeof(cl_int),   (void *)&rmaxL); break;
+                        clSetKernelArg(kernel, argn++, sizeof(cl_int),   (void *)&rmaxL); break;
       case NA_SFLOAT:   rmaxF = (float) rmax;
-                        ret = clSetKernelArg(kernel, 2, sizeof(cl_float), (void *)&rmaxF); break;
+                        clSetKernelArg(kernel, argn++, sizeof(cl_float), (void *)&rmaxF); break;
       case NA_SCOMPLEX: rmaxF = (float) rmax;
-                        ret = clSetKernelArg(kernel, 2, sizeof(cl_float), (void *)&rmaxF); break;
+                        clSetKernelArg(kernel, argn++, sizeof(cl_float), (void *)&rmaxF); break;
     }
-    ret = clSetKernelArg(kernel, 3, sizeof(cl_char), (void *)&sign);
+    clSetKernelArg(kernel, argn++, sizeof(cl_char), (void *)&sign);
 
     /* execute OpenCL kernel */
-    ret = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, (size_t *)&(ary->total), NULL, 0, NULL, NULL);
-    if (ret != CL_SUCCESS)
-      rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
+    if (clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_item_size, &local_item_size, 0, NULL, NULL) != CL_SUCCESS) rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
 
     /* run commands in queue and make sure all commands in queue is done */
     clFinish(queue);
