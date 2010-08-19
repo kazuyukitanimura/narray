@@ -103,6 +103,9 @@ enum NArray_Types {
 #endif
 
 #define OPENCL_KERNEL(k) ((k) != NULL)
+#define OPENCL_EXKRNL(q,k,e) \
+{ cl_int ret = clEnqueueNDRangeKernel((q), (k), 1, NULL, &global_item_size, &local_item_size, 0, NULL, (e));\
+  if (ret != CL_SUCCESS) rb_raise(rb_eRuntimeError, "Failed executing kernel \nError Code:%X\n", ret);}
 
 /* global variables */
 extern cl_device_id device_id;
