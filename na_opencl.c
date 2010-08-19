@@ -20,7 +20,6 @@ cl_device_id device_id;
 cl_context context;
 //size_t work_item_sizes[3];
 //size_t work_group_size;
-cl_uint compute_unit;
 size_t global_item_size, local_item_size;
 
 cl_event event;
@@ -54,7 +53,7 @@ void
 }
 
 static void
- na_opencl_do_unary_Kernel(cl_command_queue queue, cl_kernel kernel, int len, cl_mem buf1, int i1, int b1, cl_mem buf2, int i2, int b2)
+ na_opencl_do_unary_Kernel(cl_command_queue queue, cl_kernel kernel, int len, cl_mem buf1, int i1, size_t b1, cl_mem buf2, int i2, size_t b2)
 {
   int argn = 0;
 
@@ -77,7 +76,7 @@ static void
 void
  na_opencl_do_SetKernel(cl_command_queue queue, int len, int type1, cl_mem buf1, int i1, int type2, cl_mem buf2, int i2)
 {
-  int b = 0;
+  size_t b = 0;
 
   na_opencl_do_unary_Kernel(queue, SetKernels[type1][type2], len, buf1, i1, b, buf2, i2, b);
 }
@@ -181,6 +180,7 @@ void
   cl_uint ret_num_devices;
   cl_uint ret_num_platforms;
   cl_device_type device_type;
+  cl_uint compute_unit;
   cl_int ret;
 
   char fileName[] = KERNEL_SRC_FILE;
@@ -188,15 +188,16 @@ void
   char *kernel_src_code;
   size_t kernel_src_size;
   const char buildOptions[] = HDRDIR;
-  fpos_t pos;
+  long begin, end;
 
   /* load kernel source code */
   fp = fopen(fileName, "r");
   if (!fp) rb_raise(rb_eIOError, "Failed loading %s\n", fileName);
   fseek(fp, 0, SEEK_END);
-  fgetpos(fp, &pos);
+  end = ftell(fp);
   fseek(fp, 0, SEEK_SET);
-  kernel_src_size = (size_t)pos.__pos;
+  begin = ftell(fp);
+  kernel_src_size = (size_t)((end-begin)*sizeof(char));
   kernel_src_code = (char*)malloc(kernel_src_size);
   fread( kernel_src_code, sizeof(char), kernel_src_size, fp);
   fclose( fp );
