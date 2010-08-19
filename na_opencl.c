@@ -45,7 +45,7 @@ void
   clSetKernelArg(IndGenKernels[type], argn++, sizeof(cl_int), (void *)&step);
 
   /* execute OpenCL kernel */
-  if (clEnqueueNDRangeKernel(queue, IndGenKernels[type], 1, NULL, &global_item_size, &local_item_size, 0, NULL, &event) != CL_SUCCESS) rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
+  OPENCL_EXKRNL(queue, IndGenKernels[type], &event);
 //checkTime(event);
 
   /* run commands in queue and make sure all commands in queue is done */
@@ -67,7 +67,7 @@ static void
   clSetKernelArg(kernel, argn++, sizeof(cl_int), (void *)&b2);
 
   /* execute OpenCL kernel */
-  if (clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_item_size, &local_item_size, 0, NULL, NULL) != CL_SUCCESS) rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
+  OPENCL_EXKRNL(queue, kernel, NULL);
 
   /* run commands in queue and make sure all commands in queue is done */
   clFinish(queue);
@@ -155,7 +155,7 @@ void
     clSetKernelArg(kernel, argn++, sizeof(cl_int), (void *)&(s3[0].p));
 
     /* execute OpenCL kernel */
-    if (clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_item_size, &local_item_size, 0, NULL, &event) != CL_SUCCESS) rb_raise(rb_eRuntimeError, "Failed executing kernel \n");
+    OPENCL_EXKRNL(queue, kernel, &event);
     //checkTime(event);
 
     /* run commands in queue and make sure all commands in queue is done */
