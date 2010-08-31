@@ -15,6 +15,10 @@ $intopencl_types =
 $swapopencl_types = 
  %w(none uchar uchar2 uchar4 uchar4 uchar8 uchar8 uchar16 VALUE)
 
+def checkmac(name)
+  !(["Abs","Pow","Rnd"].include?(name) && RUBY_PLATFORM=~/darwin/)
+end
+
 def mkopenclsetfuncs(name,op,id,funcs)
 
   print "
@@ -81,7 +85,7 @@ def mkopenclfuncs(name,t1,t2,func)
   trcl= $realopencl_types
 
   for i in 0...c.size
-    if func[i] != nil && func[i] != "set" && func[i] != "swp"
+    if func[i] != nil && func[i] != "set" && func[i] != "swp" && checkmac(name)
       f = func[i].
 	gsub(/p1->/,"((#{t1[i]}*)pp1)->").
 	gsub(/p2->/,"((#{t2[i]}*)pp2)->").
@@ -105,7 +109,7 @@ def mkopenclfuncs(name,t1,t2,func)
   narray_types = ["NA_NONE", "NA_BYTE", "NA_SINT", "NA_LINT", "NA_SFLOAT", "NA_DFLOAT", "NA_SCOMPLEX", "NA_DCOMPLEX", "NA_ROBJ", "NA_NTYPES"]
   $globals << "na_opencl_kernel1_t #{name}Kernels;" 
   for i in 0...c.size
-    if func[i] == nil
+    if func[i] == nil || !checkmac(name)
       $kernels << "  #{name}Kernels[#{narray_types[i]}] = NULL;"
     elsif func[i]=='swp'
       $kernels << "  #{name}Kernels[#{narray_types[i]}] = SwpKernels[#{narray_types[i]}];"
@@ -1095,7 +1099,7 @@ def mkopenclpowfuncs(name,funcs)
   for i in 0...n
     for j in 0...n
       funcs.each do |k|
-	if c[i]=~k[0] && c[j]=~k[1]
+	if c[i]=~k[0] && c[j]=~k[1] && checkmac(name)
           tu = tcl[$upcast[i][j]]
           f = k[2]
 	  f = f.
@@ -1125,7 +1129,7 @@ def mkopenclpowfuncs(name,funcs)
     for j in 0...n
       f = true
       for k in funcs
-	if c[i]=~k[0] && c[j]=~k[1]
+	if c[i]=~k[0] && c[j]=~k[1] && checkmac(name)
           $kernels << "  #{name}Kernels[#{narray_types[i]}][#{narray_types[j]}] = clCreateKernel(program, \"#{name+c[i]+c[j]}\", &ret);"
 	  f = false
 	  break
@@ -1233,6 +1237,7 @@ $func_body =
   }
 }
 "
+if checkmac("Rnd")
 print <<EOM
 /* This is based on na_random.c that utilizes MT19937. See na_random.c for the original copyright notice of MT19937. */
 #define N 624
@@ -1293,6 +1298,9 @@ __kernel void init_genrand(uint s)
 EOM
 
 $kernels << "  init_genrandKernel = clCreateKernel(program, \"init_genrand\", &ret);"
+else
+$kernels << "  init_genrandKernel = NULL;"
+end
 $globals << "cl_kernel init_genrandKernel;" 
 
 mkopenclfuncs('Rnd', $opencl_types, $opencl_types,

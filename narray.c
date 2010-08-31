@@ -163,8 +163,10 @@ struct NARRAY*
   ary->ref = Qtrue;
 #ifdef __OPENCL__
   /* create OpenCL command queue */
-  //ary->queue = clCreateCommandQueue(context, device_id, 0, NULL);
-  ary->queue = clCreateCommandQueue(context, device_id, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE|CL_QUEUE_PROFILING_ENABLE, NULL);
+  cl_int ret;
+  ary->queue = clCreateCommandQueue(context, device_id, 0, &ret);
+  //ary->queue = clCreateCommandQueue(context, device_id, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE|CL_QUEUE_PROFILING_ENABLE, &ret); //Apple does not seem to supoort command queue properties
+  if (ret != CL_SUCCESS) rb_raise(rb_eRuntimeError, "Failed creating command queue \nError Code:%X\n", ret);
   if ( ary->total > 0 ) {
     ary->buffer = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, na_sizeof[type]*total, ary->ptr, NULL);
   }else {

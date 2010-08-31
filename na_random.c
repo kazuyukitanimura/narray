@@ -140,18 +140,19 @@ rand_init(seed)
     first = 0;
     init_genrand(seed);
 #ifdef __OPENCL__
-    cl_kernel kernel = init_genrandKernel; 
+  if (OPENCL_KERNEL(init_genrandKernel)) {
     int argn = 0;
     cl_command_queue queue = clCreateCommandQueue(context, device_id, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE , NULL);
 
     /* set OpenCL kernel arguments */
-    clSetKernelArg(kernel, argn++, sizeof(cl_uint), (void *)&seed);
+    clSetKernelArg(init_genrandKernel, argn++, sizeof(cl_uint), (void *)&seed);
 
     /* execute OpenCL kernel */
-    OPENCL_EXKRNL(queue, kernel, NULL);
+    OPENCL_EXKRNL(queue, init_genrandKernel, NULL);
 
     /* run commands in queue and make sure all commands in queue is done */
     clFinish(queue);
+  }
 #endif
     old = saved_seed;
     saved_seed = seed;
