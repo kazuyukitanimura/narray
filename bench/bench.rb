@@ -24,10 +24,14 @@ end
 n = ARRSZ
 
 case TYPE
+when "sfloat"
+  a,b = bench_array("sfloat")
 when "float"
   a,b = bench_array(Float)
 when "int"
   a,b = bench_array(Integer)
+when "scomplex"
+  a,b = bench_array("scomplex")
 when "complex"
   a,b = bench_array(Complex)
 when "float_cross"
@@ -52,8 +56,22 @@ c = 0
 case OP
 when "add"
   bench_time{ c = a+b }
+when "sbt"
+  bench_time{ c = a-b }
 when "mul"
   bench_time{ c = a*b }
+when "div"
+  bench_time{ c = a/b }
+when "mod"
+  bench_time{ c = a%b }
+when "mul_add"
+  bench_time{ c = a.mul_add(b,0) }
 when "solve"
   bench_time{ c = a/b }
+when "sin"
+  include NMath
+  bench_time{ c = sin(a) }
+when "atanh"
+  include NMath
+  bench_time{ c = atanh(a) }
 end

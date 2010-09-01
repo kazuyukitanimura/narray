@@ -23,13 +23,17 @@ cl_context context;
 size_t global_item_size, local_item_size;
 
 cl_event event;
+cl_ulong acctime;
+cl_int count;
 void checkTime(cl_event ev)
 {
   cl_ulong start,end;
   clWaitForEvents(1,&ev);
   clGetEventProfilingInfo(ev,CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start,NULL);
   clGetEventProfilingInfo(ev,CL_PROFILING_COMMAND_END,   sizeof(cl_ulong), &end,  NULL);
-  printf("%10.5f [ms]\n",(end-start)/1000000.0);
+  //printf("%10.5f [ms]\n",(end-start)/1000000.0);
+  acctime+=(end-start);
+  printf("%10.5f [ms]\n",acctime/1000000.0/(++count));
 }
 
 void
